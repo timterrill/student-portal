@@ -709,33 +709,60 @@
         fileReader.readAsText(event.target.files[0], "UTF-8");
         fileReader.onload = (e) => {
           try {
-            const imported = JSON.parse(e.target.result);
-            if (imported.spellingLists) spellingLists = imported.spellingLists;
-            if (imported.enabledVoiceNames) enabledVoiceNames = imported.enabledVoiceNames;
-            if (imported.sessionHistory) {
+            const raw = e.target.result.trim();
+            const imported = JSON.parse(raw);
+
+            let importedAnything = false;
+
+            // Helper to extract lists from any format (direct object, nested, or array)
+            const targetLists = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory && !imported.missedWordsVault ? imported : null);
+            if (targetLists && typeof targetLists === 'object') {
+              spellingLists = { ...spellingLists, ...targetLists };
+              importedAnything = true;
+            }
+
+            if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
+              enabledVoiceNames = imported.enabledVoiceNames;
+              importedAnything = true;
+            }
+
+            const historySource = imported.sessionHistory || (Array.isArray(imported) ? imported : null);
+            if (historySource && Array.isArray(historySource)) {
               const existingKeys = new Set(sessionHistory.map(h => `${h.date}-${h.mode}`));
-              imported.sessionHistory.forEach(item => {
-                const key = `${item.date}-${item.mode}`;
-                if (!existingKeys.has(key)) sessionHistory.push(item);
+              historySource.forEach(item => {
+                if (item && item.date && item.mode) {
+                  const key = `${item.date}-${item.mode}`;
+                  if (!existingKeys.has(key)) sessionHistory.push(item);
+                }
               });
               sessionHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
               if (sessionHistory.length > 50) sessionHistory = sessionHistory.slice(0, 50);
+              importedAnything = true;
             }
-            if (imported.missedWordsVault) {
-              missedWordsVault = [...new Set([...missedWordsVault, ...imported.missedWordsVault])];
+
+            const vaultSource = imported.missedWordsVault || imported.missedWords;
+            if (vaultSource && Array.isArray(vaultSource)) {
+              missedWordsVault = [...new Set([...missedWordsVault, ...vaultSource])];
+              importedAnything = true;
             }
-            saveData();
-            loadVoices();
-            populateAllDropdowns();
-            renderListManager();
-            alert("Successfully imported your word lists, voice settings, missed vault, and history!");
+
+            if (importedAnything) {
+              saveData();
+              loadVoices();
+              populateAllDropdowns();
+              if (document.getElementById('view-manager')) renderListManager();
+              alert("Successfully imported your data into Firebase and synced across devices!");
+            } else {
+              alert("Could not recognize the data format in this JSON file. Please check its contents.");
+            }
           } catch (err) {
-            alert("Invalid backup file format.");
+            console.error("Import error:", err);
+            alert("Invalid JSON file format. Please ensure the file is valid JSON.");
           }
         };
       }
     }
-
+    
     function populateAllDropdowns() {
       const selects = [document.getElementById('list-selector-home'), document.getElementById('list-selector-quiz')];
       const keys = Object.keys(spellingLists);
