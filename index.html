@@ -704,63 +704,76 @@
     }
 
     function importData(event) {
+      const fileInput = event.target;
+      if (!fileInput.files || !fileInput.files[0]) return;
+
+      const file = fileInput.files[0];
       const fileReader = new FileReader();
-      if (event.target.files[0]) {
-        fileReader.readAsText(event.target.files[0], "UTF-8");
-        fileReader.onload = (e) => {
+
+      fileReader.onload = (e) => {
+        try {
+          const rawText = e.target.result;
+          
+          // Step 1: Attempt JSON parsing and catch syntax errors specifically
+          let imported;
           try {
-            const raw = e.target.result.trim();
-            const imported = JSON.parse(raw);
-
-            let importedAnything = false;
-
-            // Helper to extract lists from any format (direct object, nested, or array)
-            const targetLists = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory && !imported.missedWordsVault ? imported : null);
-            if (targetLists && typeof targetLists === 'object') {
-              spellingLists = { ...spellingLists, ...targetLists };
-              importedAnything = true;
-            }
-
-            if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
-              enabledVoiceNames = imported.enabledVoiceNames;
-              importedAnything = true;
-            }
-
-            const historySource = imported.sessionHistory || (Array.isArray(imported) ? imported : null);
-            if (historySource && Array.isArray(historySource)) {
-              const existingKeys = new Set(sessionHistory.map(h => `${h.date}-${h.mode}`));
-              historySource.forEach(item => {
-                if (item && item.date && item.mode) {
-                  const key = `${item.date}-${item.mode}`;
-                  if (!existingKeys.has(key)) sessionHistory.push(item);
-                }
-              });
-              sessionHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-              if (sessionHistory.length > 50) sessionHistory = sessionHistory.slice(0, 50);
-              importedAnything = true;
-            }
-
-            const vaultSource = imported.missedWordsVault || imported.missedWords;
-            if (vaultSource && Array.isArray(vaultSource)) {
-              missedWordsVault = [...new Set([...missedWordsVault, ...vaultSource])];
-              importedAnything = true;
-            }
-
-            if (importedAnything) {
-              saveData();
-              loadVoices();
-              populateAllDropdowns();
-              if (document.getElementById('view-manager')) renderListManager();
-              alert("Successfully imported your data into Firebase and synced across devices!");
-            } else {
-              alert("Could not recognize the data format in this JSON file. Please check its contents.");
-            }
-          } catch (err) {
-            console.error("Import error:", err);
-            alert("Invalid JSON file format. Please ensure the file is valid JSON.");
+            imported = JSON.parse(rawText);
+          } catch (parseErr) {
+            console.error("JSON Syntax Error:", parseErr);
+            alert(`JSON Syntax Error: The file is not valid JSON.\nDetails: ${parseErr.message}`);
+            fileInput.value = ''; // Reset file picker
+            return;
           }
-        };
-      }
+
+          // Step 2: Validate structure
+          // Accept either a root object containing 'spellingLists' or an object that is itself a list dictionary
+          const listsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
+
+          if (!listsData || typeof listsData !== 'object' || Object.keys(listsData).length === 0) {
+            alert("Import Error: The JSON file does not contain any valid spelling lists ('spellingLists').");
+            fileInput.value = '';
+            return;
+          }
+
+          // Step 3: Populate app state safely
+          spellingLists = listsData;
+
+          if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
+            enabledVoiceNames = imported.enabledVoiceNames;
+          }
+
+          if (imported.sessionHistory && Array.isArray(imported.sessionHistory)) {
+            sessionHistory = imported.sessionHistory;
+          }
+
+          if (imported.missedWordsVault && Array.isArray(imported.missedWordsVault)) {
+            missedWordsVault = imported.missedWordsVault;
+          }
+
+          // Step 4: Save to Firebase & local cache, then update UI
+          saveData();
+          loadVoices();
+          populateAllDropdowns();
+          if (document.getElementById('view-manager')) {
+            renderListManager();
+          }
+
+          alert(`Successfully imported ${Object.keys(listsData).length} spelling lists into Firebase and synced across devices!`);
+          fileInput.value = ''; // Reset file picker
+
+        } catch (err) {
+          console.error("General Import Error:", err);
+          alert(`Unexpected error during import: ${err.message}`);
+          fileInput.value = '';
+        }
+      };
+
+      fileReader.onerror = () => {
+        alert("Error reading the file from disk.");
+        fileInput.value = '';
+      };
+
+      fileReader.readAsText(file, "UTF-8");
     }
     
     function populateAllDropdowns() {
