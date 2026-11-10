@@ -285,7 +285,7 @@
     const spellingRef = db.ref("spelling_bee");
 
     const defaultLists = {
-      "Friday 10/23/2026": [
+      "Friday 10-23-2026": [
         "metal", "hospitality", "definition", "provision", "preside",
         "crime", "genetics", "period", "explore", "hospital",
         "periodic", "gene", "exploration", "criminal", "legality",
@@ -312,6 +312,28 @@
 
     let firstTimeCorrectCount = 0;
     let totalMistakesCount = 0;
+
+    // --- SANITIZATION HELPER ---
+    function sanitizeKey(key) {
+      if (!key) return "Untitled List";
+      return key.trim().replace(/[.#$\[\]\/]/g, '-');
+    }
+
+    function validateAndSanitizeTitle(rawTitle) {
+      const sanitized = sanitizeKey(rawTitle);
+      const hasForbiddenChars = /[.#$\[\]\/]/.test(rawTitle);
+
+      if (hasForbiddenChars) {
+        const confirmUse = confirm(
+          `The title "${rawTitle}" contains characters that aren't allowed in the database (. # $ / [ ]).\n\n` +
+          `Suggested safe title: "${sanitized}"\n\n` +
+          `Click OK to use "${sanitized}", or Cancel to rename it manually.`
+        );
+        return confirmUse ? sanitized : null;
+      }
+
+      return sanitized;
+    }
 
     // --- REALTIME FIREBASE SYNC & OFFLINE CACHE ---
     spellingRef.on("value", (snapshot) => {
@@ -343,6 +365,13 @@
     });
 
     function saveData() {
+      // Ensure all stored keys are sanitized before sync
+      const safeLists = {};
+      Object.keys(spellingLists).forEach(k => {
+        safeLists[sanitizeKey(k)] = spellingLists[k];
+      });
+      spellingLists = safeLists;
+
       localStorage.setItem('spellingLists', JSON.stringify(spellingLists));
       if (enabledVoiceNames) localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
       localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
@@ -729,15 +758,21 @@
             return;
           }
 
-          const listsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
+          const rawListsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
 
-          if (!listsData || typeof listsData !== 'object' || Object.keys(listsData).length === 0) {
+          if (!rawListsData || typeof rawListsData !== 'object' || Object.keys(rawListsData).length === 0) {
             alert("Import Error: The JSON file does not contain valid spelling lists ('spellingLists').");
             fileInput.value = '';
             return;
           }
 
-          spellingLists = listsData;
+          // Auto-sanitize keys during import
+          const cleanListsData = {};
+          Object.keys(rawListsData).forEach(k => {
+            cleanListsData[sanitizeKey(k)] = rawListsData[k];
+          });
+
+          spellingLists = cleanListsData;
           if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
             enabledVoiceNames = imported.enabledVoiceNames;
           }
@@ -755,7 +790,7 @@
             renderListManager();
           }
 
-          alert(`Successfully imported ${Object.keys(listsData).length} spelling lists into Firebase and synced across devices!`);
+          alert(`Successfully imported ${Object.keys(spellingLists).length} spelling lists into Firebase and synced across devices!`);
           fileInput.value = '';
         } catch (err) {
           alert(`Unexpected error during import: ${err.message}`);
@@ -1060,18 +1095,21 @@
       const wordsInput = document.getElementById('new-list-words');
       if (!nameInput || !wordsInput) return;
 
-      const name = nameInput.value.trim();
+      const rawName = nameInput.value.trim();
       const wordsRaw = wordsInput.value.trim();
 
-      if (!name || !wordsRaw) {
+      if (!rawName || !wordsRaw) {
         alert("Please enter a list name and words!");
         return;
       }
 
+      const safeName = validateAndSanitizeTitle(rawName);
+      if (!safeName) return; // User canceled sanitization prompt
+
       const words = wordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
       const uniqueWords = [...new Set(words)];
 
-      spellingLists[name] = uniqueWords;
+      spellingLists[safeName] = uniqueWords;
       saveData();
 
       nameInput.value = '';
@@ -1079,12 +1117,15 @@
 
       renderListManager();
       populateAllDropdowns();
-      alert(`List "${name}" added with ${uniqueWords.length} words!`);
+      alert(`List "${safeName}" added with ${uniqueWords.length} words!`);
     }
 
     function editList(key) {
-      const newName = prompt("Edit list name:", key);
-      if (newName === null) return;
+      const rawNewName = prompt("Edit list name:", key);
+      if (rawNewName === null) return;
+
+      const safeName = validateAndSanitizeTitle(rawNewName);
+      if (!safeName) return;
 
       const currentWords = spellingLists[key] ? spellingLists[key].join(', ') : '';
       const newWordsRaw = prompt("Edit words (separated by commas or lines):", currentWords);
@@ -1093,11 +1134,11 @@
       const words = newWordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
       const uniqueWords = [...new Set(words)];
 
-      if (newName !== key) {
+      if (safeName !== key) {
         delete spellingLists[key];
       }
 
-      spellingLists[newName.trim()] = uniqueWords;
+      spellingLists[safeName] = uniqueWords;
       saveData();
       renderListManager();
       populateAllDropdowns();
@@ -1161,7 +1202,7 @@
     </div>
 
     <!-- Version Stamp -->
-    <div class="version-tag">v2.0</div>
+    <div class="version-tag">v2.2</div>
   </div>
 
   <!-- VIEW: QUIZ -->
@@ -1233,13 +1274,13 @@
       <h3 style="margin-top: 0; color: var(--primary);">Add New List</h3>
       <div style="margin-bottom: 10px;">
         <label style="font-size: 12px; color: #555;">List Title:</label>
-        <input type="text" id="new-list-name" placeholder="e.g., Friday 11/06/2026">
+        <input type="text" id="new-list-name" placeholder="e.g., Friday 11-06-2026">
       </div>
       <div style="margin-bottom: 10px;">
         <label style="font-size: 12px; color: #555;">Words (separated by commas or lines):</label>
         <textarea id="new-list-words" rows="4" placeholder="apple, banana, cherry..."></textarea>
       </div>
-      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List/p>
+      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List</button>
     </div>
 
     <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="switchView('view-home')">🏠 Back to Home</button>
@@ -1266,35 +1307,4 @@
       
       <div style="margin: 10px 0; display: flex; gap: 8px;">
         <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(true)">Select All</button>
-        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(false)">Deselect All</button>
-      </div>
-
-      <div id="modal-word-mash-list" class="voice-list-container"></div>
-
-      <div style="margin-bottom: 15px;">
-        <label style="font-size: 13px; color: #555; display: block; margin-bottom: 4px;">Words Per Batch:</label>
-        <input type="number" id="mash-batch-size" value="15" min="5" max="50">
-      </div>
-
-      <div style="display: flex; gap: 10px;">
-        <button class="btn btn-voice" onclick="startCustomWordMash()">Start Word-Mash</button>
-        <button class="btn btn-secondary" onclick="closeWordMashModal()">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: PRACTICE HISTORY -->
-  <div id="history-modal" class="modal">
-    <div class="modal-content">
-      <h2 style="margin-top: 0; color: var(--primary);">📊 Practice History</h2>
-      <div id="modal-history-list" class="voice-list-container"></div>
-      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <button class="btn btn-secondary" style="flex: 1;" onclick="exportHistoryOnly()">📥 Download History</button>
-        <button class="btn btn-danger" style="flex: 1;" onclick="clearHistory()">🗑️ Clear History</button>
-        <button class="btn btn-secondary" style="width: 100%;" onclick="closeHistoryModal()">Close</button>
-      </div>
-    </div>
-  </div>
-
-</body>
-</html>
+        <button class="btn btn-secondary" style="padding: 4px 8
