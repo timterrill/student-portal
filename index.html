@@ -337,6 +337,32 @@
       return sanitized;
     }
 
+    // --- FIND MOST RECENT DATED FRIDAY LIST ---
+    function getMostRecentFridayKey(keys) {
+      // Filter for keys that resemble dates (e.g., containing MM-DD-YYYY or MM/DD/YYYY)
+      const datedKeys = keys.filter(k => /\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/.test(k));
+      if (datedKeys.length === 0) return keys[0] || null;
+
+      // Sort by parsed date descending (newest first)
+      datedKeys.sort((a, b) => {
+        const dateA = extractDateFromString(a);
+        const dateB = extractDateFromString(b);
+        return dateB - dateA;
+      });
+
+      return datedKeys[0];
+    }
+
+    function extractDateFromString(str) {
+      const match = str.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+      if (!match) return new Date(0);
+      let month = parseInt(match[1], 10) - 1;
+      let day = parseInt(match[2], 10);
+      let year = parseInt(match[3], 10);
+      if (year < 100) year += 2000;
+      return new Date(year, month, day);
+    }
+
     // --- REALTIME FIREBASE SYNC & OFFLINE CACHE ---
     spellingRef.on("value", (snapshot) => {
       const serverData = snapshot.val();
@@ -809,6 +835,7 @@
     function populateAllDropdowns() {
       const selects = [document.getElementById('list-selector-home'), document.getElementById('list-selector-quiz')];
       const keys = Object.keys(spellingLists);
+      const mostRecentKey = getMostRecentFridayKey(keys);
 
       selects.forEach(select => {
         if (!select) return;
@@ -828,8 +855,12 @@
           option.textContent = `${key} (${spellingLists[key].length} words)`;
           select.appendChild(option);
         });
+
         if (currentVal && (keys.includes(currentVal) || currentVal === MISSED_VAULT_KEY)) {
           select.value = currentVal;
+        } else if (mostRecentKey) {
+          select.value = mostRecentKey;
+          syncLists(mostRecentKey);
         }
       });
     }
@@ -1251,7 +1282,7 @@
     </div>
 
     <!-- Version Stamp -->
-    <div class="version-tag">v2.4</div>
+    <div class="version-tag">v2.5</div>
   </div>
 
   <!-- VIEW: QUIZ -->
