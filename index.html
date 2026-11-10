@@ -1111,10 +1111,29 @@
       if (sessionHistory.length > 50) sessionHistory.pop();
       saveData();
 
+      const pct = initialTotal > 0 ? Math.round((firstTimeCorrectCount / initialTotal) * 100) : 0;
+
+      // Dynamic phrases based on score
+      let motivationalPhrase = "";
+      let spokenPhrase = "";
+      if (pct === 100) {
+        motivationalPhrase = "🌟 Flawless Victory! You mastered every single word on the first try!";
+        spokenPhrase = "Flawless victory! You mastered every single word on the first try!";
+      } else if (pct >= 80) {
+        motivationalPhrase = "🎉 Outstanding job! You crushed this spelling list!";
+        spokenPhrase = "Outstanding job! You crushed this spelling list!";
+      } else if (pct >= 50) {
+        motivationalPhrase = "👍 Good solid effort! Keep practicing to lock in those tricky words.";
+        spokenPhrase = "Good solid effort! Keep practicing to lock in those tricky words.";
+      } else {
+        motivationalPhrase = "💪 Keep at it! Every mistake is just helping your brain learn.";
+        spokenPhrase = "Keep at it! Every practice makes you stronger.";
+      }
+
       const summaryText = document.getElementById('completion-summary');
       if (summaryText) {
-        const pct = initialTotal > 0 ? Math.round((firstTimeCorrectCount / initialTotal) * 100) : 0;
         summaryText.innerHTML = `
+          <div style="font-size: 16px; font-weight: bold; color: var(--primary); margin-bottom: 15px;">${motivationalPhrase}</div>
           <div class="stats-card-box">
             <div>🎯 First-Try Accuracy: <strong>${firstTimeCorrectCount} / ${initialTotal} (${pct}%)</strong></div>
             <div>❌ Total Mistakes: <strong>${totalMistakesCount}</strong></div>
@@ -1137,7 +1156,7 @@
         }
       }
 
-      speakWithCustomVoice("Awesome job! You finished the entire spelling practice set!", 1.0);
+      speakWithCustomVoice(spokenPhrase, 1.0);
     }
 
     function renderListManager() {
