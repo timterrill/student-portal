@@ -36,9 +36,19 @@
       max-width: 550px;
       text-align: center;
       display: none;
+      position: relative;
     }
 
     .container.active { display: block; }
+
+    .version-tag {
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      font-size: 11px;
+      color: #95A5A6;
+      user-select: none;
+    }
 
     h1 { margin-bottom: 5px; color: var(--primary); }
     .subtitle { color: #7F8C8D; font-size: 14px; margin-bottom: 20px; }
@@ -328,20 +338,17 @@
           renderListManager();
         }
       } else {
-        // Initialize Firebase on first run
         saveData();
       }
     });
 
     function saveData() {
-      // Local backup
       localStorage.setItem('spellingLists', JSON.stringify(spellingLists));
       if (enabledVoiceNames) localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
       localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
       localStorage.setItem('spellingMissedWordsVault', JSON.stringify(missedWordsVault));
       if (activeMashSession) localStorage.setItem('spellingActiveMashSession', JSON.stringify(activeMashSession));
 
-      // Push to Firebase Realtime Database
       spellingRef.set({
         spellingLists: spellingLists,
         enabledVoiceNames: enabledVoiceNames,
@@ -713,44 +720,34 @@
       fileReader.onload = (e) => {
         try {
           const rawText = e.target.result;
-          
-          // Step 1: Attempt JSON parsing and catch syntax errors specifically
           let imported;
           try {
             imported = JSON.parse(rawText);
           } catch (parseErr) {
-            console.error("JSON Syntax Error:", parseErr);
             alert(`JSON Syntax Error: The file is not valid JSON.\nDetails: ${parseErr.message}`);
-            fileInput.value = ''; // Reset file picker
-            return;
-          }
-
-          // Step 2: Validate structure
-          // Accept either a root object containing 'spellingLists' or an object that is itself a list dictionary
-          const listsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
-
-          if (!listsData || typeof listsData !== 'object' || Object.keys(listsData).length === 0) {
-            alert("Import Error: The JSON file does not contain any valid spelling lists ('spellingLists').");
             fileInput.value = '';
             return;
           }
 
-          // Step 3: Populate app state safely
-          spellingLists = listsData;
+          const listsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
 
+          if (!listsData || typeof listsData !== 'object' || Object.keys(listsData).length === 0) {
+            alert("Import Error: The JSON file does not contain valid spelling lists ('spellingLists').");
+            fileInput.value = '';
+            return;
+          }
+
+          spellingLists = listsData;
           if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
             enabledVoiceNames = imported.enabledVoiceNames;
           }
-
           if (imported.sessionHistory && Array.isArray(imported.sessionHistory)) {
             sessionHistory = imported.sessionHistory;
           }
-
           if (imported.missedWordsVault && Array.isArray(imported.missedWordsVault)) {
             missedWordsVault = imported.missedWordsVault;
           }
 
-          // Step 4: Save to Firebase & local cache, then update UI
           saveData();
           loadVoices();
           populateAllDropdowns();
@@ -759,10 +756,8 @@
           }
 
           alert(`Successfully imported ${Object.keys(listsData).length} spelling lists into Firebase and synced across devices!`);
-          fileInput.value = ''; // Reset file picker
-
+          fileInput.value = '';
         } catch (err) {
-          console.error("General Import Error:", err);
           alert(`Unexpected error during import: ${err.message}`);
           fileInput.value = '';
         }
@@ -775,7 +770,7 @@
 
       fileReader.readAsText(file, "UTF-8");
     }
-    
+
     function populateAllDropdowns() {
       const selects = [document.getElementById('list-selector-home'), document.getElementById('list-selector-quiz')];
       const keys = Object.keys(spellingLists);
@@ -1164,6 +1159,9 @@
         <input type="file" accept=".json" style="display: none;" onchange="importData(event)">
       </label>
     </div>
+
+    <!-- Version Stamp -->
+    <div class="version-tag">v2.0</div>
   </div>
 
   <!-- VIEW: QUIZ -->
@@ -1241,7 +1239,7 @@
         <label style="font-size: 12px; color: #555;">Words (separated by commas or lines):</label>
         <textarea id="new-list-words" rows="4" placeholder="apple, banana, cherry..."></textarea>
       </div>
-      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List</button>
+      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List/p>
     </div>
 
     <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="switchView('view-home')">🏠 Back to Home</button>
