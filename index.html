@@ -136,6 +136,7 @@
     .btn-warning { background: var(--warning); color: white; width: 100%; margin-top: 10px;}
     .btn-danger { background: var(--danger); color: white; padding: 6px 12px; font-size: 13px;}
     .btn-secondary { background: #7F8C8D; color: white; padding: 10px 15px; font-size: 14px; white-space: nowrap;}
+    .btn-mic { background: #9B59B6; color: white; padding: 10px 15px; font-size: 16px; white-space: nowrap;}
 
     .feedback {
       min-height: 24px;
@@ -312,6 +313,7 @@
 
     let firstTimeCorrectCount = 0;
     let totalMistakesCount = 0;
+    let recognition = null;
 
     // --- SANITIZATION HELPER ---
     function sanitizeKey(key) {
@@ -365,7 +367,6 @@
     });
 
     function saveData() {
-      // Ensure all stored keys are sanitized before sync
       const safeLists = {};
       Object.keys(spellingLists).forEach(k => {
         safeLists[sanitizeKey(k)] = spellingLists[k];
@@ -766,7 +767,6 @@
             return;
           }
 
-          // Auto-sanitize keys during import
           const cleanListsData = {};
           Object.keys(rawListsData).forEach(k => {
             cleanListsData[sanitizeKey(k)] = rawListsData[k];
@@ -886,6 +886,55 @@
       if (currentQueue.length === 0) return;
       const word = currentQueue[currentWordIndex];
       speakWithCustomVoice(word, 0.85);
+    }
+
+    // --- VOICE SPELLING INPUT ---
+    function startVoiceSpelling() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported by this browser. Try using Google Chrome or Safari!");
+        return;
+      }
+
+      if (!recognition) {
+        recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onresult = (event) => {
+          const speechResult = event.results[0][0].transcript.trim().toLowerCase();
+          const cleanedWord = speechResult.replace(/[\s-]/g, '').replace(/[^a-z]/g, '');
+          
+          const input = document.getElementById('answer-input');
+          if (input) {
+            input.value = cleanedWord;
+            checkSpelling();
+          }
+          const micBtn = document.getElementById('mic-btn');
+          if (micBtn) micBtn.style.background = '#9B59B6';
+        };
+
+        recognition.onerror = (event) => {
+          console.error("Speech recognition error", event.error);
+          const micBtn = document.getElementById('mic-btn');
+          if (micBtn) micBtn.style.background = '#9B59B6';
+        };
+
+        recognition.onend = () => {
+          const micBtn = document.getElementById('mic-btn');
+          if (micBtn) micBtn.style.background = '#9B59B6';
+        };
+      }
+
+      const micBtn = document.getElementById('mic-btn');
+      if (micBtn) micBtn.style.background = '#E74C3C'; // Red while listening
+      
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error("Recognition already started", e);
+      }
     }
 
     function checkSpelling(event) {
@@ -1104,7 +1153,7 @@
       }
 
       const safeName = validateAndSanitizeTitle(rawName);
-      if (!safeName) return; // User canceled sanitization prompt
+      if (!safeName) return;
 
       const words = wordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
       const uniqueWords = [...new Set(words)];
@@ -1202,7 +1251,7 @@
     </div>
 
     <!-- Version Stamp -->
-    <div class="version-tag">v2.2</div>
+    <div class="version-tag">v2.3</div>
   </div>
 
   <!-- VIEW: QUIZ -->
@@ -1218,7 +1267,8 @@
 
     <form onsubmit="checkSpelling(event)">
       <div class="input-group">
-        <input type="text" id="answer-input" placeholder="Type spelling here..." autocomplete="off" spellcheck="false" autofocus>
+        <input type="text" id="answer-input" placeholder="Type or speak spelling..." autocomplete="off" spellcheck="false" autofocus>
+        <button type="button" class="btn btn-mic" id="mic-btn" onclick="startVoiceSpelling()" title="Spell out loud">🎙️ Speak</button>
         <button type="submit" class="btn btn-submit">Submit</button>
       </div>
     </form>
@@ -1307,4 +1357,11 @@
       
       <div style="margin: 10px 0; display: flex; gap: 8px;">
         <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(true)">Select All</button>
-        <button class="btn btn-secondary" style="padding: 4px 8
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(false)">Deselect All</button>
+      </div>
+
+      <div id="modal-word-mash-list" class="voice-list-container"></div>
+
+      <div style="margin-bottom: 15px;">
+        <label style="font-size: 13px; color: #555; display: block; margin-bottom: 4px;">Words Per Batch:</label>
+        <input type="number"
