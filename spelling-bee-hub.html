@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shannon's Spelling Bee Hub</title>
+  <style>
+    :root {
+      --primary: #4A90E2;
+      --success: #2ECC71;
+      --danger: #E74C3C;
+      --warning: #F39C12;
+      --bg: #F0F4F8;
+      --card-bg: #FFFFFF;
+      --text: #2C3E50;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      background: var(--card-bg);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 550px;
+      text-align: center;
+      display: none;
+    }
+
+    .container.active { display: block; }
+
+    h1 { margin-bottom: 5px; color: var(--primary); }
+    .subtitle { color: #7F8C8D; font-size: 14px; margin-bottom: 20px; }
+
+    .settings-group {
+      margin-bottom: 15px;
+      font-size: 13px;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .voice-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    select, textarea, input[type="text"], input[type="number"] {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #BDC3C7;
+      width: 100%;
+      box-sizing: border-box;
+      font-size: 15px;
+      outline: none;
+    }
+
+    select:focus, textarea:focus, input[type="text"]:focus, input[type="number"]:focus {
+      border-color: var(--primary);
+    }
+
+    .progress-bar-container {
+      background: #E0E0E0;
+      border-radius: 10px;
+      height: 12px;
+      width: 100%;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .progress-bar {
+      background: var(--primary);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .btn-audio {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 18px;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3);
+      margin-bottom: 20px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: opacity 0.2s;
+    }
+
+    .btn-primary { background: var(--primary); color: white; width: 100%; margin-top: 10px;}
+    .btn-submit { background: var(--primary); color: white; }
+    .btn-voice { background: #9B59B6; color: white; width: 100%; margin-bottom: 15px;}
+    .btn-success { background: var(--success); color: white; width: 100%; margin-top: 10px;}
+    .btn-warning { background: var(--warning); color: white; width: 100%; margin-top: 10px;}
+    .btn-danger { background: var(--danger); color: white; padding: 6px 12px; font-size: 13px;}
+    .btn-secondary { background: #7F8C8D; color: white; padding: 10px 15px; font-size: 14px; white-space: nowrap;}
+
+    .feedback {
+      min-height: 24px;
+      font-weight: bold;
+      font-size: 18px;
+      margin-top: 10px;
+    }
+    .feedback.correct { color: var(--success); }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #555;
+      text-align: left;
+      background: #F8FAFC;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #E2E8F0;
+    }
+
+    .stats-card-box {
+      background: #FFFFFF;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+
+    .stats-card-box div {
+      margin: 8px 0;
+      font-size: 16px;
+    }
+
+    /* Modal Styling */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background-color: #FFFFFF;
+      padding: 25px;
+      border-radius: 16px;
+      width: 90%;
+      max-width: 480px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      text-align: left;
+    }
+
+    .voice-list-container {
+      overflow-y: auto;
+      max-height: 40vh;
+      margin: 10px 0 15px 0;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 10px;
+      background: #F8FAFC;
+    }
+
+    .voice-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 5px;
+      border-bottom: 1px solid #EDF2F7;
+      font-size: 14px;
+    }
+
+    .voice-item label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .history-card {
+      background: #FFFFFF;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      border: 1px solid #E2E8F0;
+      font-size: 13px;
+    }
+
+    .correction-screen h2 { color: var(--danger); margin-bottom: 10px; }
+    .correct-word-display {
+      font-size: 32px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      color: var(--text);
+      margin: 15px 0;
+      background: #FFF3F3;
+      padding: 15px;
+      border-radius: 8px;
+      border: 2px dashed var(--danger);
+    }
+
+    .btn-go-on {
+      background: var(--success);
+      color: white;
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
+      box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3);
+      width: 100%;
+    }
+  </style>
+
+  <script>
+    function switchView(viewId) {
+      document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
+      const target = document.getElementById(viewId);
+      if (target) target.classList.add('active');
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+      if (viewId === 'view-home' || viewId === 'view-quiz') {
+        loadVoices();
+        populateAllDropdowns();
+      }
+      if (viewId === 'view-manager') renderListManager();
+    }
+
+    const defaultLists = {
+      "Friday 10/23/2026": [
+        "metal", "hospitality", "definition", "provision", "preside",
+        "crime", "genetics", "period", "explore", "hospital",
+        "periodic", "gene", "exploration", "criminal", "legality",
+        "president", "define", "metallic", "provide", "legal"
+      ]
+    };
+
+    const MISSED_VAULT_KEY = "⚠️ Missed Words Vault";
+
+    let savedLists = null;
+    try {
+      savedLists = JSON.parse(localStorage.getItem('spellingLists'));
+    } catch(e) { savedLists = null; }
+
+    let spellingLists = (savedLists && Object.keys(savedLists).length > 0) ? savedLists : defaultLists;
+
+    let availableVoices = [];
+    let enabledVoiceNames = JSON.parse(localStorage.getItem('enabledVoiceNames')) || null;
+    let sessionHistory = JSON.parse(localStorage.getItem('spellingSessionHistory')) || [];
+    let missedWordsVault = JSON.parse(localStorage.getItem('spellingMissedWordsVault')) || [];
+    let activeMashSession = JSON.parse(localStorage.getItem('spellingActiveMashSession')) || null;
+
+    let currentQueue = [];
+    let nextQueue = [];
+    let currentWordIndex = 0;
+    let roundNumber = 1;
+    let initialTotal = 0;
+    let currentTestModeName = '';
+    let sessionStartTime = null;
+    let isInitialized = false;
+
+    let firstTimeCorrectCount = 0;
+    let totalMistakesCount = 0;
+
+    function saveData() {
+      localStorage.setItem('spellingLists', JSON.stringify(spellingLists));
+      localStorage.setItem('spellingMissedWordsVault', JSON.stringify(missedWordsVault));
+    }
+
+    function checkResumeBanner() {
+      const banner = document.getElementById('resume-banner');
+      const details = document.getElementById('resume-details');
+      if (!banner || !details) return;
+      if (activeMashSession && activeMashSession.batches && activeMashSession.currentBatchIndex < activeMashSession.batches.length) {
+        banner.style.display = 'block';
+        details.innerText = `${activeMashSession.title} - Batch ${activeMashSession.currentBatchIndex + 1} of ${activeMashSession.batches.length}`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    function loadVoices() {
+      if (typeof window.speechSynthesis === 'undefined') return;
+      let allLoadedVoices = window.speechSynthesis.getVoices();
+      availableVoices = allLoadedVoices.filter(v => !v.name.toLowerCase().includes('ralph'));
+
+      const savedVoiceName = localStorage.getItem('selectedVoiceName');
+      const voiceSelects = [document.getElementById('voice-selector'), document.getElementById('voice-selector-quiz')];
+      
+      voiceSelects.forEach(select => {
+        if (!select) return;
+        select.innerHTML = '';
+        
+        if (availableVoices.length === 0) {
+          const option = document.createElement('option');
+          option.textContent = "Loading voices...";
+          select.appendChild(option);
+          return;
+        }
+
+        if (!enabledVoiceNames) {
+          enabledVoiceNames = availableVoices.filter(v => v.lang.startsWith('en')).map(v => v.name);
+          if (enabledVoiceNames.length === 0) {
+            enabledVoiceNames = availableVoices.map(v => v.name);
+          }
+          localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
+        }
+
+        const filteredVoices = availableVoices.filter(v => enabledVoiceNames.includes(v.name));
+        const voicesToDisplay = filteredVoices.length > 0 ? filteredVoices : availableVoices;
+
+        voicesToDisplay.forEach(voice => {
+          const option = document.createElement('option');
+          option.value = voice.name;
+          option.textContent = `${voice.name} (${voice.lang})`;
+          select.appendChild(option);
+        });
+
+        if (savedVoiceName && voicesToDisplay.some(v => v.name === savedVoiceName)) {
+          select.value = savedVoiceName;
+        } else if (voicesToDisplay.length > 0) {
+          select.value = voicesToDisplay[0].name;
+        }
+      });
+
+      isInitialized = true;
+    }
+
+    if (typeof speechSynthesis !== 'undefined') {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    function syncAndPreviewVoice(val) {
+      if (!val || val === "Loading voices...") return;
+      localStorage.setItem('selectedVoiceName', val);
+      
+      const s1 = document.getElementById('voice-selector');
+      const s2 = document.getElementById('voice-selector-quiz');
+      if (s1) s1.value = val;
+      if (s2) s2.value = val;
+
+      speakWithCustomVoice("Shannon's Spelling Bee Hub", 1.0, null, val);
+    }
+
+    function syncLists(val) {
+      if (!val) return;
+      const s1 = document.getElementById('list-selector-home');
+      const s2 = document.getElementById('list-selector-quiz');
+      if (s1) s1.value = val;
+      if (s2) s2.value = val;
+    }
+
+    function getSelectedVoice() {
+      const voiceSelect = document.getElementById('voice-selector') || document.getElementById('voice-selector-quiz');
+      const selectedName = voiceSelect ? voiceSelect.value : null;
+      if (selectedName && selectedName !== "Loading voices...") {
+        localStorage.setItem('selectedVoiceName', selectedName);
+        return availableVoices.find(v => v.name === selectedName) || availableVoices[0] || null;
+      }
+      return availableVoices[0] || null;
+    }
+
+    function speakWithCustomVoice(text, rate = 1.0, callback = null, specificVoiceName = null) {
+      if (typeof window.speechSynthesis === 'undefined') return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = rate;
+      
+      let chosenVoice = null;
+      if (specificVoiceName) {
+        chosenVoice = availableVoices.find(v => v.name === specificVoiceName);
+      } else {
+        chosenVoice = getSelectedVoice();
+      }
+
+      if (chosenVoice) {
+        utterance.voice = chosenVoice;
+      }
+
+      if (callback) {
+        utterance.onend = callback;
+      }
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function openVoiceModal() {
+      const modalList = document.getElementById('modal-voice-list');
+      if (!modalList) return;
+      modalList.innerHTML = '';
+
+      if (availableVoices.length === 0) {
+        modalList.innerHTML = '<div style="padding: 10px; text-align:center;">No voices found yet. Try reloading.</div>';
+      }
+
+      availableVoices.forEach(voice => {
+        const isChecked = !enabledVoiceNames || enabledVoiceNames.includes(voice.name);
+        
+        const div = document.createElement('div');
+        div.className = 'voice-item';
+        div.innerHTML = `
+          <label>
+            <input type="checkbox" value="${voice.name}" ${isChecked ? 'checked' : ''}>
+            ${voice.name} (${voice.lang})
+          </label>
+          <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="previewSpecificVoice('${voice.name.replace(/'/g, "\\'")}')">🔊 Preview</button>
+        `;
+        modalList.appendChild(div);
+      });
+
+      const modal = document.getElementById('voice-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeVoiceModal() {
+      const modal = document.getElementById('voice-modal');
+      if (modal) modal.style.display = 'none';
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function previewSpecificVoice(voiceName) {
+      speakWithCustomVoice("Shannon's Spelling Bee Hub", 1.0, null, voiceName);
+    }
+
+    function saveVoicePreferences() {
+      const checkboxes = document.querySelectorAll('#modal-voice-list input[type="checkbox"]');
+      let selected = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          selected.push(cb.value);
+        }
+      });
+
+      if (selected.length === 0) {
+        alert("Please select at least one voice!");
+        return;
+      }
+
+      enabledVoiceNames = selected;
+      localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
+      closeVoiceModal();
+      loadVoices();
+      populateAllDropdowns();
+    }
+
+    function openWordMashModal() {
+      const modalList = document.getElementById('modal-word-mash-list');
+      if (!modalList) return;
+      modalList.innerHTML = '';
+
+      const keys = Object.keys(spellingLists);
+      if (keys.length === 0 && missedWordsVault.length === 0) {
+        alert("No spelling lists available!");
+        return;
+      }
+
+      keys.forEach(key => {
+        const div = document.createElement('div');
+        div.className = 'voice-item';
+        div.innerHTML = `
+          <label>
+            <input type="checkbox" value="${key}" checked>
+            <strong>${key}</strong> (${spellingLists[key].length} words)
+          </label>
+        `;
+        modalList.appendChild(div);
+      });
+
+      const modal = document.getElementById('word-mash-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeWordMashModal() {
+      const modal = document.getElementById('word-mash-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function toggleAllWordMashLists(selectState) {
+      const checkboxes = document.querySelectorAll('#modal-word-mash-list input[type="checkbox"]');
+      checkboxes.forEach(cb => cb.checked = selectState);
+    }
+
+    function startCustomWordMash() {
+      const checkboxes = document.querySelectorAll('#modal-word-mash-list input[type="checkbox"]');
+      let selectedLists = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          selectedLists.push(cb.value);
+        }
+      });
+
+      if (selectedLists.length === 0) {
+        alert("Please select at least one list for the Word-Mash!");
+        return;
+      }
+
+      let combinedWords = [];
+      selectedLists.forEach(key => {
+        if (spellingLists[key]) {
+          combinedWords = combinedWords.concat(spellingLists[key]);
+        }
+      });
+      combinedWords = [...new Set(combinedWords)];
+      combinedWords.sort(() => Math.random() - 0.5);
+
+      const batchSizeInput = document.getElementById('mash-batch-size');
+      const batchSize = batchSizeInput ? parseInt(batchSizeInput.value, 10) : 15;
+      
+      let batches = [];
+      for (let i = 0; i < combinedWords.length; i += batchSize) {
+        batches.push(combinedWords.slice(i, i + batchSize));
+      }
+
+      activeMashSession = {
+        title: `Word-Mash (${combinedWords.length} words)`,
+        batches: batches,
+        currentBatchIndex: 0
+      };
+      localStorage.setItem('spellingActiveMashSession', JSON.stringify(activeMashSession));
+
+      closeWordMashModal();
+      startCurrentMashBatch();
+    }
+
+    function startCurrentMashBatch() {
+      if (!activeMashSession || !activeMashSession.batches) return;
+      const index = activeMashSession.currentBatchIndex;
+      const totalBatches = activeMashSession.batches.length;
+      const batchWords = activeMashSession.batches[index];
+
+      currentTestModeName = `${activeMashSession.title} [Batch ${index + 1}/${totalBatches}]`;
+      startQuizSession(batchWords, `🌪️ ${activeMashSession.title} (Batch ${index + 1}/${totalBatches})`);
+    }
+
+    function proceedToNextBatch() {
+      if (activeMashSession) {
+        activeMashSession.currentBatchIndex++;
+        localStorage.setItem('spellingActiveMashSession', JSON.stringify(activeMashSession));
+        startCurrentMashBatch();
+      }
+    }
+
+    function resumeWordMashBatch() {
+      if (activeMashSession) {
+        startCurrentMashBatch();
+      }
+    }
+
+    function clearActiveMashSession() {
+      activeMashSession = null;
+      localStorage.removeItem('spellingActiveMashSession');
+      checkResumeBanner();
+    }
+
+    function openHistoryModal() {
+      const container = document.getElementById('modal-history-list');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (sessionHistory.length === 0) {
+        container.innerHTML = '<div style="padding: 15px; text-align:center; color: #7F8C8D;">No practice history recorded yet. Complete a quiz to see stats here!</div>';
+      } else {
+        sessionHistory.forEach(record => {
+          const div = document.createElement('div');
+          div.className = 'history-card';
+          const pct = record.total > 0 ? Math.round((record.firstTry / record.total) * 100) : 0;
+          div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <strong>${record.mode}</strong>
+              <span style="color: #7F8C8D; font-size: 11px;">${record.date}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; color: #555;">
+              <span>First Try: <strong style="color: var(--success);">${record.firstTry}/${record.total} (${pct}%)</strong></span>
+              <span>Mistakes: <strong style="color: var(--danger);">${record.mistakes}</strong></span>
+              <span>Time: <strong>${formatTime(record.duration)}</strong></span>
+            </div>
+          `;
+          container.appendChild(div);
+        });
+      }
+
+      const modal = document.getElementById('history-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById('history-modal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function clearHistory() {
+      if (confirm("Are you sure you want to clear your practice history?")) {
+        sessionHistory = [];
+        localStorage.removeItem('spellingSessionHistory');
+        openHistoryModal();
+      }
+    }
+
+    function exportHistoryOnly() {
+      if (sessionHistory.length === 0) {
+        alert("No history recorded yet to export.");
+        return;
+      }
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ sessionHistory: sessionHistory }, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "spelling_practice_history.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function formatTime(totalSeconds) {
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
+      if (mins > 0) {
+        return `${mins}m ${secs}s`;
+      }
+      return `${secs}s`;
+    }
+
+    function exportData() {
+      const backup = {
+        spellingLists: spellingLists,
+        enabledVoiceNames: enabledVoiceNames,
+        sessionHistory: sessionHistory,
+        missedWordsVault: missedWordsVault
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backup, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "spelling_bee_hub.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importData(event) {
+      const fileReader = new FileReader();
+      if (event.target.files[0]) {
+        fileReader.readAsText(event.target.files[0], "UTF-8");
+        fileReader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target.result);
+            if (imported.spellingLists) {
+              spellingLists = imported.spellingLists;
+            }
+            if (imported.enabledVoiceNames) {
+              enabledVoiceNames = imported.enabledVoiceNames;
+              localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
+            }
+            if (imported.sessionHistory) {
+              const existingKeys = new Set(sessionHistory.map(h => `${h.date}-${h.mode}`));
+              imported.sessionHistory.forEach(item => {
+                const key = `${item.date}-${item.mode}`;
+                if (!existingKeys.has(key)) {
+                  sessionHistory.push(item);
+                }
+              });
+              sessionHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+              if (sessionHistory.length > 50) sessionHistory = sessionHistory.slice(0, 50);
+              localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
+            }
+            if (imported.missedWordsVault) {
+              missedWordsVault = [...new Set([...missedWordsVault, ...imported.missedWordsVault])];
+            }
+            saveData();
+            loadVoices();
+            populateAllDropdowns();
+            renderListManager();
+            alert("Successfully imported your word lists, voice settings, missed vault, and history!");
+          } catch (err) {
+            alert("Invalid backup file format.");
+          }
+        };
+      }
+    }
+
+    function populateAllDropdowns() {
+      const selects = [document.getElementById('list-selector-home'), document.getElementById('list-selector-quiz')];
+      const keys = Object.keys(spellingLists);
+      
+      selects.forEach(select => {
+        if (!select) return;
+        const currentVal = select.value;
+        select.innerHTML = '';
+
+        if (missedWordsVault.length > 0) {
+          const vaultOption = document.createElement('option');
+          vaultOption.value = MISSED_VAULT_KEY;
+          vaultOption.textContent = `${MISSED_VAULT_KEY} (${missedWordsVault.length} words)`;
+          select.appendChild(vaultOption);
+        }
+
+        keys.forEach(key => {
+          const option = document.createElement('option');
+          option.value = key;
+          option.textContent = `${key} (${spellingLists[key].length} words)`;
+          select.appendChild(option);
+        });
+        if (currentVal && (keys.includes(currentVal) || currentVal === MISSED_VAULT_KEY)) {
+          select.value = currentVal;
+        }
+      });
+    }
+
+    function startQuizFromSelectedList() {
+      const homeSelect = document.getElementById('list-selector-home');
+      const selectedKey = homeSelect ? homeSelect.value : null;
+      
+      if (selectedKey === MISSED_VAULT_KEY) {
+        if (missedWordsVault.length === 0) {
+          alert("Missed Words Vault is currently empty! Great job!");
+          return;
+        }
+        currentTestModeName = MISSED_VAULT_KEY;
+        let listWords = [...missedWordsVault];
+        listWords.sort(() => Math.random() - 0.5);
+        startQuizSession(listWords, `⚠️ Missed Words Vault (${listWords.length} words)`);
+        return;
+      }
+
+      if (!selectedKey || !spellingLists[selectedKey]) {
+        alert("Please select a valid spelling list!");
+        return;
+      }
+      currentTestModeName = selectedKey;
+      
+      let listWords = [...spellingLists[selectedKey]];
+      listWords.sort(() => Math.random() - 0.5);
+      
+      startQuizSession(listWords, `✏️ Quiz: ${selectedKey}`);
+    }
+
+    function startQuizSession(wordArray, titleText) {
+      currentQueue = wordArray;
+      nextQueue = [];
+      currentWordIndex = 0;
+      roundNumber = 1;
+      initialTotal = currentQueue.length;
+
+      firstTimeCorrectCount = 0;
+      totalMistakesCount = 0;
+      sessionStartTime = Date.now();
+
+      const quizTitleEl = document.getElementById('quiz-title');
+      if (quizTitleEl) quizTitleEl.innerText = titleText;
+      
+      switchView('view-quiz');
+      updateUI();
+      
+      setTimeout(() => {
+        playWord();
+      }, 800);
+    }
+
+    function playWord() {
+      if (currentQueue.length === 0) return;
+      const word = currentQueue[currentWordIndex];
+      speakWithCustomVoice(word, 0.85);
+    }
+
+    function checkSpelling(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('answer-input');
+      if (!input) return;
+      
+      const userGuess = input.value.trim().toLowerCase().replace(/[^a-z]/g, '');
+      const targetWord = currentQueue[currentWordIndex].toLowerCase();
+
+      if (!userGuess) return;
+
+      if (userGuess === targetWord) {
+        if (roundNumber === 1) {
+          firstTimeCorrectCount++;
+          if (currentTestModeName === MISSED_VAULT_KEY) {
+            missedWordsVault = missedWordsVault.filter(w => w.toLowerCase() !== targetWord);
+            saveData();
+          }
+        }
+
+        const feedback = document.getElementById('feedback-message');
+        if (feedback) {
+          feedback.className = "feedback correct";
+          feedback.innerText = "✨ Correct!";
+        }
+        speakWithCustomVoice("Correct!", 1.0);
+
+        input.value = '';
+        currentWordIndex++;
+
+        setTimeout(() => {
+          if (feedback) feedback.innerText = '';
+          checkQueueProgress();
+        }, 1000);
+
+      } else {
+        totalMistakesCount++;
+        nextQueue.push(targetWord);
+
+        if (!missedWordsVault.some(w => w.toLowerCase() === targetWord)) {
+          missedWordsVault.push(targetWord);
+          saveData();
+        }
+
+        input.value = '';
+        showCorrectionScreen(targetWord);
+      }
+    }
+
+    function showCorrectionScreen(word) {
+      switchView('view-correction');
+      const targetDisplay = document.getElementById('target-word-display');
+      const spelledText = document.getElementById('spelled-out-text');
+      
+      if (targetDisplay) targetDisplay.innerText = word;
+      if (spelledText) {
+        const spacedSpellingDisplay = word.split('').join(' - ');
+        spelledText.innerText = `Spelled: ${spacedSpellingDisplay}`;
+      }
+
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+
+      setTimeout(() => {
+        speakWithCustomVoice("Incorrect. The word is", 0.75, () => {
+          setTimeout(() => {
+            speakWithCustomVoice(word, 0.65, () => {
+              setTimeout(() => {
+                const spelledSpoken = word.split('').join(' . ');
+                speakWithCustomVoice(`It is spelled: ${spelledSpoken}`, 0.6);
+              }, 400);
+            });
+          }, 300);
+        });
+      }, 100);
+    }
+
+    function proceedAfterCorrection() {
+      if (typeof window.speechSynthesis !== 'undefined') {
+        window.speechSynthesis.cancel();
+      }
+      switchView('view-quiz');
+      currentWordIndex++;
+      checkQueueProgress();
+    }
+
+    function checkQueueProgress() {
+      if (currentWordIndex >= currentQueue.length) {
+        if (nextQueue.length === 0) {
+          showCompletionScreen();
+          return;
+        } else {
+          currentQueue = [...nextQueue];
+          nextQueue = [];
+          currentWordIndex = 0;
+          roundNumber++;
+        }
+      }
+      updateUI();
+      playWord();
+      const ansInput = document.getElementById('answer-input');
+      if (ansInput) ansInput.focus();
+    }
+
+    function updateUI() {
+      const roundEl = document.getElementById('round-indicator');
+      const totalWordsEl = document.getElementById('stat-total-words');
+      const wordsLeftEl = document.getElementById('words-left');
+      const firstCorrectEl = document.getElementById('stat-first-correct');
+      const totalMistakesEl = document.getElementById('stat-total-mistakes');
+      const progressBar = document.getElementById('progress-bar');
+
+      if (roundEl) roundEl.innerText = `Round ${roundNumber}`;
+      if (totalWordsEl) totalWordsEl.innerText = initialTotal;
+      if (wordsLeftEl) wordsLeftEl.innerText = currentQueue.length - currentWordIndex;
+      if (firstCorrectEl) firstCorrectEl.innerText = firstTimeCorrectCount;
+      if (totalMistakesEl) totalMistakesEl.innerText = totalMistakesCount;
+
+      if (progressBar && initialTotal > 0) {
+        const progress = ((initialTotal - (currentQueue.length - currentWordIndex + nextQueue.length)) / initialTotal) * 100;
+        progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+      }
+    }
+
+    function showCompletionScreen() {
+      switchView('view-completion');
+      
+      const sessionDurationSeconds = sessionStartTime ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
+      const formattedDuration = formatTime(sessionDurationSeconds);
+
+      const historyRecord = {
+        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mode: currentTestModeName,
+        total: initialTotal,
+        firstTry: firstTimeCorrectCount,
+        mistakes: totalMistakesCount,
+        duration: sessionDurationSeconds
+      };
+      
+      sessionHistory.unshift(historyRecord);
+      if (sessionHistory.length > 50) sessionHistory.pop();
+      localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
+
+      const sumTotal = document.getElementById('summary-total');
+      const sumFirstTry = document.getElementById('summary-first-try');
+      const sumMistakes = document.getElementById('summary-mistakes');
+      const sumTime = document.getElementById('summary-time');
+      const compDetails = document.getElementById('completion-details');
+      const compHeading = document.getElementById('completion-heading');
+      const compMessage = document.getElementById('completion-message');
+
+      if (sumTotal) sumTotal.innerText = initialTotal;
+      if (sumFirstTry) sumFirstTry.innerText = `${firstTimeCorrectCount} / ${initialTotal}`;
+      if (sumMistakes) sumMistakes.innerText = totalMistakesCount;
+      if (sumTime) sumTime.innerText = formattedDuration;
+      if (compDetails) compDetails.innerText = `Completed list: ${currentTestModeName}`;
+
+      const nextBatchContainer = document.getElementById('next-batch-container');
+      if (activeMashSession && activeMashSession.batches && (activeMashSession.currentBatchIndex + 1) < activeMashSession.batches.length) {
+        if (nextBatchContainer) nextBatchContainer.style.display = 'block';
+      } else {
+        if (nextBatchContainer) nextBatchContainer.style.display = 'none';
+        if (activeMashSession) {
+          clearActiveMashSession();
+        }
+      }
+
+      const percentage = initialTotal > 0 ? Math.round((firstTimeCorrectCount / initialTotal) * 100) : 100;
+      let completionPhrase = "";
+
+      if (percentage === 100) {
+        completionPhrase = "Fantastic! You mastered all the words in this session!";
+        if (compHeading) compHeading.innerText = "🎉 Fantastic!";
+      } else if (percentage > 90) {
+        completionPhrase = `Great job, you got ${percentage}% of the words correct the first time!`;
+        if (compHeading) compHeading.innerText = "👏 Great Job!";
+      } else if (percentage > 80) {
+        completionPhrase = `Good job! You got ${percentage}% of the words correct the first time!`;
+        if (compHeading) compHeading.innerText = "👍 Good Job!";
+      } else if (percentage > 70) {
+        completionPhrase = `Well done. You got ${percentage}% of the words correct the first time!`;
+        if (compHeading) compHeading.innerText = "⭐ Well Done!";
+      } else {
+        completionPhrase = `Good try. Keep practicing, you got ${percentage}% of the words correct the first time!`;
+        if (compHeading) compHeading.innerText = "💪 Good Try!";
+      }
+
+      if (compMessage) compMessage.innerText = completionPhrase;
+      speakWithCustomVoice(completionPhrase, 1.0);
+    }
+
+    function startVoiceInput() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        alert("Speech recognition is not supported on this browser. Try Chrome.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+
+      const voiceBtn = document.getElementById('voice-btn');
+      if (voiceBtn) voiceBtn.innerText = "🎙️ Listening...";
+
+      recognition.start();
+
+      recognition.onresult = (event) => {
+        let transcript = event.results[0][0].transcript;
+        transcript = transcript.replace(/\s+/g, '').toLowerCase();
+        const ansInput = document.getElementById('answer-input');
+        if (ansInput) ansInput.value = transcript;
+        if (voiceBtn) voiceBtn.innerText = "🎤 Spell Out Loud";
+        checkSpelling();
+      };
+
+      recognition.onerror = () => { if (voiceBtn) voiceBtn.innerText = "🎤 Spell Out Loud"; };
+      recognition.onend = () => { if (voiceBtn) voiceBtn.innerText = "🎤 Spell Out Loud"; };
+    }
+
+    function renderListManager() {
+      const container = document.getElementById('lists-container');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      const keys = Object.keys(spellingLists);
+      keys.forEach(key => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.style.display = "flex";
+        div.style.justifyContent = "space-between";
+        div.style.alignItems = "center";
+        div.style.padding = "6px 0";
+        div.style.borderBottom = "1px solid #EDF2F7";
+        div.innerHTML = `
+          <span><strong>${key}</strong> (${spellingLists[key].length} words)</span>
+          <button class="btn btn-danger" onclick="deleteList('${key}')">Delete</button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function saveNewList() {
+      const nameInput = document.getElementById('new-list-name');
+      const wordsInput = document.getElementById('new-list-words');
+      
+      if (!nameInput || !wordsInput) return;
+
+      const listName = nameInput.value.trim();
+      const rawText = wordsInput.value.trim();
+
+      if (!listName) {
+        alert("Please enter a name for the spelling list.");
+        return;
+      }
+      if (!rawText) {
+        alert("Please enter some words for the list.");
+        return;
+      }
+
+      const wordsArray = rawText
+        .split(/[\n,]+/)
+        .map(w => w.trim().toLowerCase())
+        .filter(w => w.length > 0);
+
+      if (wordsArray.length === 0) {
+        alert("No valid words found.");
+        return;
+      }
+
+      spellingLists[listName] = wordsArray;
+      saveData();
+
+      nameInput.value = '';
+      wordsInput.value = '';
+      renderListManager();
+      alert(`List "${listName}" saved successfully with ${wordsArray.length} words!`);
+    }
+
+    function deleteList(listName) {
+      if (Object.keys(spellingLists).length <= 1) {
+        alert("You must keep at least one spelling list!");
+        return;
+      }
+      if (confirm(`Are you sure you want to delete "${listName}"?`)) {
+        delete spellingLists[listName];
+        saveData();
+        renderListManager();
+      }
+    }
+
+    window.onload = () => {
+      checkResumeBanner();
+      loadVoices();
+      setTimeout(loadVoices, 200);
+      setTimeout(loadVoices, 600);
+      populateAllDropdowns();
+      switchView('view-home');
+    };
+  </script>
+</head>
+<body>
+
+  <!-- VIEW 1: HOME / DASHBOARD -->
+  <div class="container active" id="view-home">
+    <h1>🐝 Shannon's Spelling Bee Hub</h1>
+    <div class="subtitle">Select a word list or test mode to start practicing!</div>
+
+    <div id="resume-banner" style="display:none; background:#FFF3CD; border:1px solid #FFEEBA; color:#856404; padding:12px; border-radius:8px; margin-bottom:15px; text-align:left;">
+      <strong>⏳ Active Word-Mash Progress Found!</strong><br>
+      <span id="resume-details" style="font-size:13px;"></span>
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button class="btn btn-warning" style="font-size:13px; padding:6px 12px; margin-top:0;" onclick="resumeWordMashBatch()">▶️ Resume Batch</button>
+        <button class="btn btn-danger" style="font-size:13px; padding:6px 12px; margin-top:0;" onclick="clearActiveMashSession()">Discard</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label for="list-selector-home"><strong>Choose Word List:</strong></label>
+      <select id="list-selector-home" onchange="syncLists(this.value)"></select>
+    </div>
+
+    <div class="settings-group" style="margin-top: 10px;">
+      <label for="voice-selector"><strong>🗣️ Choose Reading Voice:</strong></label>
+      <div class="voice-row">
+        <select id="voice-selector" onchange="syncAndPreviewVoice(this.value)"></select>
+        <button class="btn btn-secondary" onclick="openVoiceModal()">⚙️ Filter Voices</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="startQuizFromSelectedList()" style="font-size: 18px; padding: 15px; margin-top: 20px;">▶️ Start Quiz</button>
+    <button class="btn btn-warning" onclick="openWordMashModal()" style="font-size: 18px; padding: 15px;">🌪️ Word-Mash Test (Select Lists & Batch)</button>
+    <button class="btn" style="background: #34495E; color: white; width: 100%; margin-top: 10px;" onclick="openHistoryModal()">📜 View Practice History</button>
+    <button class="btn" style="background: #7F8C8D; color: white; width: 100%; margin-top: 10px;" onclick="switchView('view-manager')">📂 Manage / Add Word Lists</button>
+  </div>
+
+  <!-- VOICE FILTER MODAL POP-UP -->
+  <div class="modal" id="voice-modal">
+    <div class="modal-content">
+      <h2>⚙️ Customize Voices</h2>
+      <p style="font-size: 13px; color: #666;">Check the voices you want to include in your dropdown. Click preview to test them out!</p>
+      
+      <div class="voice-list-container" id="modal-voice-list"></div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="saveVoicePreferences()" style="margin-top:0;">Save & Apply</button>
+        <button class="btn" style="background: #BDC3C7; color: white; margin-top:0;" onclick="closeVoiceModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORD-MASH SELECTION MODAL POP-UP -->
+  <div class="modal" id="word-mash-modal">
+    <div class="modal-content">
+      <h2>🌪️ Configure Word-Mash</h2>
+      <p style="font-size: 13px; color: #666;">Select spelling lists and set your preferred batch size:</p>
+      
+      <div style="margin-bottom: 10px; text-align: left;">
+        <label style="font-size: 13px;"><strong>Words Per Batch:</strong></label>
+        <select id="mash-batch-size" style="margin-top: 4px; padding: 6px;">
+          <option value="10">10 words per batch</option>
+          <option value="15" selected>15 words per batch</option>
+          <option value="20">20 words per batch</option>
+          <option value="999">All words in 1 single session</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom: 5px; display: flex; gap: 10px;">
+        <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px;" onclick="toggleAllWordMashLists(true)">Select All</button>
+        <button class="btn btn-secondary" style="font-size: 12px; padding: 6px 10px;" onclick="toggleAllWordMashLists(false)">Deselect All</button>
+      </div>
+
+      <div class="voice-list-container" id="modal-word-mash-list"></div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-warning" onclick="startCustomWordMash()" style="margin-top:0;">Start Word-Mash</button>
+        <button class="btn" style="background: #BDC3C7; color: white; margin-top:0;" onclick="closeWordMashModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRACTICE HISTORY MODAL POP-UP -->
+  <div class="modal" id="history-modal">
+    <div class="modal-content">
+      <h2>📜 Practice History</h2>
+      <p style="font-size: 13px; color: #666;">Review past quiz scores, accuracy, and completion times:</p>
+      
+      <div class="voice-list-container" id="modal-history-list" style="background: #FFF; padding: 5px;"></div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="exportHistoryOnly()" style="margin-top:0; flex: 1;">💾 Export History Only</button>
+        <button class="btn btn-danger" onclick="clearHistory()" style="margin-top:0; font-size: 13px; padding: 8px;">Clear History</button>
+        <button class="btn" style="background: #BDC3C7; color: white; margin-top:0;" onclick="closeHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: QUIZ RUNNER -->
+  <div class="container" id="view-quiz">
+    <h1 id="quiz-title">✏️ Spelling Bee</h1>
+    <div class="subtitle" id="round-indicator">Round 1</div>
+
+    <div style="display: flex; gap: 10px; margin-bottom: 15px; background: #F8FAFC; padding: 10px; border-radius: 8px; border: 1px solid #E2E8F0;">
+      <div style="flex: 1; text-align: left;">
+        <label style="font-size: 11px; color: #666;"><strong>List:</strong></label>
+        <select id="list-selector-quiz" onchange="syncLists(this.value)" style="font-size: 13px; padding: 6px;"></select>
+      </div>
+      <div style="flex: 1; text-align: left;">
+        <label style="font-size: 11px; color: #666;"><strong>Voice:</strong></label>
+        <select id="voice-selector-quiz" onchange="syncAndPreviewVoice(this.value)" style="font-size: 13px; padding: 6px;"></select>
+      </div>
+    </div>
+
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <button class="btn-audio" onclick="playWord()">🔊 Listen to Word</button>
+
+    <form onsubmit="checkSpelling(event)">
+      <div class="input-group">
+        <input type="text" id="answer-input" placeholder="Type word here..." autocomplete="off" autofocus>
+        <button type="submit" class="btn btn-submit">Check</button>
+      </div>
+    </form>
+
+    <button class="btn btn-voice" onclick="startVoiceInput()" id="voice-btn">🎤 Spell Out Loud</button>
+
+    <div class="feedback" id="feedback-message"></div>
+
+    <div class="stats-grid">
+      <span>Total Words: <strong id="stat-total-words">0</strong></span>
+      <span>Remaining: <strong id="words-left">0</strong></span>
+      <span>First-Time Correct: <strong id="stat-first-correct" style="color: var(--success);">0</strong></span>
+      <span>Total Mistakes: <strong id="stat-total-mistakes" style="color: var(--danger);">0</strong></span>
+    </div>
+    <button class="btn" style="background: #95A5A6; color: white; margin-top: 20px; width: 100%;" onclick="switchView('view-home')">🏠 Exit to Home</button>
+  </div>
+
+  <!-- VIEW 3: CORRECTION SCREEN -->
+  <div class="container" id="view-correction">
+    <h2>❌ Not Quite Right</h2>
+    <p>Let's look at the correct spelling:</p>
+    <div class="correct-word-display" id="target-word-display"></div>
+    <p id="spelled-out-text" style="color: #666; font-style: italic;"></p>
+    <button class="btn-go-on" onclick="proceedAfterCorrection()">Go On ➡️</button>
+  </div>
+
+  <!-- VIEW 4: COMPLETION SCREEN -->
+  <div class="container" id="view-completion">
+    <h1 id="completion-heading">🎉 Fantastic!</h1>
+    <h2 id="completion-message" style="font-size: 18px; margin: 15px 0; color: var(--text);">You mastered all the words in this session!</h2>
+    <div class="stats-card-box">
+      <div>📋 <strong>Total Session Words:</strong> <span id="summary-total">0</span></div>
+      <div>✨ <strong>Correct First Try:</strong> <span id="summary-first-try" style="color: var(--success); font-weight: bold;">0</span></div>
+      <div>❌ <strong>Total Mistakes:</strong> <span id="summary-mistakes" style="color: var(--danger); font-weight: bold;">0</span></div>
+      <div>⏱️ <strong>Completion Time:</strong> <span id="summary-time" style="color: var(--primary); font-weight: bold;">0s</span></div>
+    </div>
+    <p id="completion-details" style="color: #7F8C8D; font-size: 13px;"></p>
+    
+    <div id="next-batch-container" style="display:none; margin-top:15px;">
+      <button class="btn btn-warning" style="font-size:18px; padding:15px; margin-bottom:10px;" onclick="proceedToNextBatch()">➡️ Continue to Next Batch</button>
+    </div>
+
+    <button class="btn btn-success" onclick="switchView('view-home')">🏠 Return to Home</button>
+  </div>
+
+  <!-- VIEW 5: LIST MANAGER -->
+  <div class="container" id="view-manager">
+    <h1>📂 Word List Manager</h1>
+    <div class="subtitle">Add new lists or review past ones</div>
+
+    <div style="text-align: left; margin-bottom: 20px;">
+      <label><strong>Create New List:</strong></label>
+      <input type="text" id="new-list-name" placeholder="e.g. Friday 10/30/2026" style="margin: 5px 0 10px 0;">
+      <textarea id="new-list-words" rows="5" placeholder="Type or paste words separated by commas or new lines..."></textarea>
+      <button class="btn btn-primary" onclick="saveNewList()">Save List</button>
+    </div>
+
+    <hr style="border:0; border-top:1px solid #EEE; margin: 20px 0;">
+
+    <div style="text-align: left;">
+      <label><strong>Existing Saved Lists:</strong></label>
+      <div id="lists-container" style="max-height: 150px; overflow-y: auto; margin-top: 10px;"></div>
+    </div>
+
+    <div style="text-align: left; margin-top: 20px; border-top: 1px solid #EEE; padding-top: 15px;">
+      <label><strong>Sync / Backup Settings:</strong></label>
+      <div style="display: flex; gap: 10px; margin-top: 5px;">
+        <button class="btn btn-primary" onclick="exportData()" style="margin-top:0;">💾 Export to File</button>
+        <label class="btn btn-warning" style="margin-top:0; display:inline-block; text-align:center; cursor:pointer; line-height: normal; padding: 12px 20px;">
+          📁 Import File <input type="file" id="import-file" accept=".json" onchange="importData(event)" style="display:none;">
+        </label>
+      </div>
+    </div>
+
+    <button class="btn" style="background: #7F8C8D; color: white; width: 100%; margin-top: 20px;" onclick="switchView('view-home')">🏠 Back to Home</button>
+  </div>
+</body>
+</html>
