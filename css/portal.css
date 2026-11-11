@@ -1,0 +1,129 @@
+:root {
+  --primary: #4A90E2;
+  --bg: #F0F4F8;
+  --card-bg: #FFFFFF;
+  --text: #2C3E50;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  margin: 0;
+  padding: 20px;
+}
+
+.portal-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.grade-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.grade-card {
+  background: var(--card-bg);
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  text-align: left;
+}
+
+.grade-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+}
+
+.grade-badge {
+  background: #3498DB;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 12px;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grade-12-badge { background: #E74C3C; }
+
+.grade-info h2 { margin: 0 0 5px 0; font-size: 18px; }
+.grade-info p { margin: 0; font-size: 13px; color: #7F8C8D; }
+
+/* SLIDE-OUT DRAWER */
+.drawer-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  z-index: 100;
+}
+
+.grade-drawer {
+  position: fixed;
+  top: 0; right: -400px;
+  width: 100%; max-width: 380px;
+  height: 100vh;
+  background: #FFFFFF;
+  box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+  transition: right 0.3s ease;
+  z-index: 101;
+  padding: 25px;
+  box-sizing: border-box;
+}
+
+.grade-drawer.open { right: 0; }
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.close-btn {
+  background: none; border: none; font-size: 20px; cursor: pointer; color: #7F8C8D;
+}
+
+/* APP BUTTON CARDS */
+.app-button {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.2s;
+}
+
+.app-button:hover { background: #EDF2F7; }
+
+.app-icon {
+  font-size: 28px;
+  width: 50px; height: 50px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.bee-bg { background: #FFF9C4; }
+
+.app-details h3 { margin: 0 0 4px 0; font-size: 16px; color: var(--primary); }
+.app-details p { margin: 0; font-size: 12px; color: #7F8C8D; }

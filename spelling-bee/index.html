@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shannon's Spelling Bee Hub</title>
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+  <!-- VIEW: HOME -->
+  <div id="view-home" class="container active">
+    <h1>Shannon's Spelling Bee</h1>
+    <div class="subtitle">Practice & Master Your Weekly Spelling Lists</div>
+
+    <div id="resume-banner" style="display: none; background: #FFF3CD; border: 1px solid #FFEBAA; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+      <strong style="color: #856404;">🔄 Active Word-Mash In Progress</strong>
+      <div id="resume-details" style="font-size: 13px; color: #856404; margin: 4px 0 8px 0;"></div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-warning" style="padding: 6px 12px; font-size: 13px;" onclick="resumeWordMashBatch()">Resume Session</button>
+        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick="clearActiveMashSession()">Discard</button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label for="list-selector-home">Select Spelling List:</label>
+      <select id="list-selector-home" onchange="syncLists(this.value)"></select>
+    </div>
+
+    <div class="settings-group">
+      <label for="voice-selector">Select Audio Voice:</label>
+      <div class="voice-row">
+        <select id="voice-selector" onchange="syncAndPreviewVoice(this.value)"></select>
+        <button class="btn btn-secondary" onclick="openVoiceModal()">⚙️ Voice Filter</button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="startQuizFromSelectedList()">🚀 Start Practice Quiz</button>
+    <button class="btn btn-voice" onclick="openWordMashModal()">🌪️ Custom Word-Mash Quiz</button>
+    <button class="btn btn-success" onclick="switchView('view-manager')">📝 Manage Word Lists</button>
+    <button class="btn btn-warning" onclick="openHistoryModal()">📊 Practice Stats & History</button>
+
+    <div style="margin-top: 25px; border-top: 1px solid #E2E8F0; padding-top: 15px; display: flex; gap: 10px; justify-content: center;">
+      <button class="btn btn-secondary" onclick="exportData()">💾 Export Backup</button>
+      <label class="btn btn-secondary" style="cursor: pointer; margin: 0;">
+        📥 Import Backup
+        <input type="file" accept=".json" style="display: none;" onchange="importData(event)">
+      </label>
+    </div>
+
+    <div class="version-tag">v2.5</div>
+  </div>
+
+  <!-- VIEW: QUIZ -->
+  <div id="view-quiz" class="container">
+    <h1 id="quiz-title">Spelling Quiz</h1>
+    <div id="round-indicator" class="subtitle">Round 1</div>
+
+    <div class="progress-bar-container">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+
+    <button class="btn-audio" onclick="playWord()">🔊 Repeat Word</button>
+
+    <form onsubmit="checkSpelling(event)">
+      <div class="input-group">
+        <input type="text" id="answer-input" placeholder="Type or speak spelling..." autocomplete="off" spellcheck="false" autofocus>
+        <button type="button" class="btn btn-mic" id="mic-btn" onclick="startVoiceSpelling()" title="Spell out loud">🎙️ Speak</button>
+        <button type="submit" class="btn btn-submit">Submit</button>
+      </div>
+    </form>
+
+    <div id="feedback-message" class="feedback"></div>
+
+    <div class="stats-grid">
+      <div>Words Remaining: <strong id="words-left">0</strong></div>
+      <div>Total Words: <strong id="stat-total-words">0</strong></div>
+      <div>First-Try Correct: <strong id="stat-first-correct" style="color: var(--success);">0</strong></div>
+      <div>Total Mistakes: <strong id="stat-total-mistakes" style="color: var(--danger);">0</strong></div>
+    </div>
+
+    <div class="settings-group" style="margin-top: 15px;">
+      <div class="voice-row">
+        <select id="voice-selector-quiz" onchange="syncAndPreviewVoice(this.value)"></select>
+      </div>
+    </div>
+
+    <button class="btn btn-secondary" style="margin-top: 15px;" onclick="switchView('view-home')">🏠 Exit Quiz</button>
+  </div>
+
+  <!-- VIEW: CORRECTION SCREEN -->
+  <div id="view-correction" class="container correction-screen">
+    <h2>Let's Practice That Word!</h2>
+    <div style="font-size: 15px; color: #555;">The correct spelling is:</div>
+    <div id="target-word-display" class="correct-word-display"></div>
+    <div id="spelled-out-text" style="font-size: 18px; color: #7F8C8D; font-weight: bold; margin-bottom: 20px;"></div>
+    
+    <button class="btn-go-on" onclick="proceedAfterCorrection()">Got It! Continue ➡️</button>
+  </div>
+
+  <!-- VIEW: COMPLETION -->
+  <div id="view-completion" class="container">
+    <h1>🎉 Practice Complete!</h1>
+    <div class="subtitle">Great job staying focused and practicing hard!</div>
+
+    <div id="completion-summary"></div>
+
+    <button id="btn-next-batch" class="btn btn-voice" style="display: none;" onclick="proceedToNextBatch()"></button>
+    <button class="btn btn-primary" onclick="startQuizFromSelectedList()">🔄 Practice Again</button>
+    <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="switchView('view-home')">🏠 Back to Home</button>
+  </div>
+
+  <!-- VIEW: LIST MANAGER -->
+  <div id="view-manager" class="container">
+    <h1>Word List Manager</h1>
+    <div class="subtitle">Add, edit, or delete custom spelling sets</div>
+
+    <div id="manager-lists-container"></div>
+
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: left;">
+      <h3 style="margin-top: 0; color: var(--primary);">Add New List</h3>
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; color: #555;">List Title:</label>
+        <input type="text" id="new-list-name" placeholder="e.g., Friday 11-06-2026">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label style="font-size: 12px; color: #555;">Words (separated by commas or lines):</label>
+        <textarea id="new-list-words" rows="4" placeholder="apple, banana, cherry..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List</button>
+    </div>
+
+    <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="switchView('view-home')">🏠 Back to Home</button>
+  </div>
+
+  <!-- MODALS -->
+  <div id="voice-modal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-top: 0; color: var(--primary);">Voice Selector Filter</h2>
+      <div style="font-size: 13px; color: #555;">Check the voice options you want visible in the main app dropdown:</div>
+      <div id="modal-voice-list" class="voice-list-container"></div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="saveVoicePreferences()">Save Voice Preferences</button>
+        <button class="btn btn-secondary" onclick="closeVoiceModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="word-mash-modal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-top: 0; color: #9B59B6;">🌪️ Custom Word-Mash Setup</h2>
+      <div style="font-size: 13px; color: #555;">Select lists to combine into a multi-batch randomized review:</div>
+      <div style="margin: 10px 0; display: flex; gap: 8px;">
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(true)">Select All</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="toggleAllWordMashLists(false)">Deselect All</button>
+      </div>
+      <div id="modal-word-mash-list" class="voice-list-container"></div>
+      <div style="margin-bottom: 15px;">
+        <label style="font-size: 13px; color: #555; display: block; margin-bottom: 4px;">Words Per Batch:</label>
+        <input type="number" id="mash-batch-size" value="15" min="5" max="50">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-voice" onclick="startCustomWordMash()">Start Word-Mash</button>
+        <button class="btn btn-secondary" onclick="closeWordMashModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="history-modal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-top: 0; color: var(--primary);">📊 Practice History</h2>
+      <div id="modal-history-list" class="voice-list-container"></div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn btn-secondary" style="flex: 1;" onclick="exportHistoryOnly()">📥 Download History</button>
+        <button class="btn btn-danger" style="flex: 1;" onclick="clearHistory()">🗑️ Clear History</button>
+        <button class="btn btn-secondary" style="width: 100%;" onclick="closeHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modular Scripts -->
+  <script src="js/firebase-config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
