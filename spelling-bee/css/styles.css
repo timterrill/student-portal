@@ -60,7 +60,7 @@ h1 { margin-bottom: 5px; color: var(--primary); }
 
 .voice-row { display: flex; gap: 8px; width: 100%; }
 
-select, textarea, input[type="text"], input[type="number"] {
+select, textarea, input[type="text"], input[type="number"], input[type="password"] {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #BDC3C7;
@@ -70,7 +70,7 @@ select, textarea, input[type="text"], input[type="number"] {
   outline: none;
 }
 
-select:focus, textarea:focus, input[type="text"]:focus, input[type="number"]:focus {
+select:focus, textarea:focus, input[type="text"]:focus, input[type="number"]:focus, input[type="password"]:focus {
   border-color: var(--primary);
 }
 

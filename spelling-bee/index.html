@@ -12,8 +12,34 @@
 </head>
 <body>
 
+  <!-- LOGIN / STUDENT SELECTOR MODAL -->
+  <div id="login-modal" class="modal" style="display: flex;">
+    <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <h2 style="margin-top: 0; color: var(--primary);">🐝 Welcome to Spelling Bee!</h2>
+      <div class="subtitle" style="margin-bottom: 15px;">Enter your student name & passphrase to log in:</div>
+
+      <div style="margin-bottom: 12px; text-align: left;">
+        <label style="font-size: 12px; color: #555;">Student Name / ID:</label>
+        <input type="text" id="login-student-id" placeholder="e.g. Maya or Admin">
+      </div>
+
+      <div style="margin-bottom: 15px; text-align: left;">
+        <label style="font-size: 12px; color: #555;">Passphrase / PIN:</label>
+        <input type="password" id="login-passphrase" placeholder="Enter passphrase">
+      </div>
+
+      <button class="btn btn-primary" onclick="loginUser()">🔓 Log In</button>
+      <div id="login-error" style="color: var(--danger); font-size: 13px; margin-top: 10px; display: none;"></div>
+    </div>
+  </div>
+
   <!-- VIEW: HOME -->
-  <div id="view-home" class="container active">
+  <div id="view-home" class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <span id="user-display-badge" style="background: #E2E8F0; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: #555;"></span>
+      <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="logoutUser()">🚪 Switch User</button>
+    </div>
+
     <h1>Shannon's Spelling Bee</h1>
     <div class="subtitle">Practice & Master Your Weekly Spelling Lists</div>
 
@@ -41,8 +67,11 @@
 
     <button class="btn btn-primary" onclick="startQuizFromSelectedList()">🚀 Start Practice Quiz</button>
     <button class="btn btn-voice" onclick="openWordMashModal()">🌪️ Custom Word-Mash Quiz</button>
-    <button class="btn btn-success" onclick="switchView('view-manager')">📝 Manage Word Lists</button>
+    <button class="btn btn-success" onclick="switchView('view-manager')">📝 Manage Personal Word Lists</button>
     <button class="btn btn-warning" onclick="openHistoryModal()">📊 Practice Stats & History</button>
+    
+    <!-- Admin Dashboard Button (Only shown for Admin) -->
+    <button id="btn-admin-panel" class="btn btn-voice" style="display: none; background: #27AE60; margin-top: 10px;" onclick="openAdminModal()">👑 Admin / Teacher Panel</button>
 
     <!-- Navigation Back to Main Portal Hub -->
     <a href="../index.html" class="btn btn-secondary" style="display: block; width: 100%; box-sizing: border-box; text-decoration: none; margin-top: 10px; text-align: center;">🏠 Back to Student Portal Hub</a>
@@ -55,7 +84,7 @@
       </label>
     </div>
 
-    <div class="version-tag">v3.2</div>
+    <div class="version-tag">v4.0</div>
   </div>
 
   <!-- VIEW: QUIZ -->
@@ -120,7 +149,7 @@
   <!-- VIEW: LIST MANAGER -->
   <div id="view-manager" class="container">
     <h1>Word List Manager</h1>
-    <div class="subtitle">Add, edit, or delete custom spelling sets</div>
+    <div class="subtitle">Add, edit, or delete personal custom spelling sets</div>
 
     <div id="manager-lists-container"></div>
 
@@ -128,13 +157,13 @@
       <h3 style="margin-top: 0; color: var(--primary);">Add New List</h3>
       <div style="margin-bottom: 10px;">
         <label style="font-size: 12px; color: #555;">List Title:</label>
-        <input type="text" id="new-list-name" placeholder="e.g., Friday 11-06-2026">
+        <input type="text" id="new-list-name" placeholder="e.g., Extra Practice 11-13">
       </div>
       <div style="margin-bottom: 10px;">
         <label style="font-size: 12px; color: #555;">Words (separated by commas or lines):</label>
         <textarea id="new-list-words" rows="4" placeholder="apple, banana, cherry..."></textarea>
       </div>
-      <button class="btn btn-primary" onclick="addNewList()">➕ Save New List</button>
+      <button class="btn btn-primary" onclick="addNewList()">➕ Save New Personal List</button>
     </div>
 
     <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="switchView('view-home')">🏠 Back to Home</button>
@@ -182,6 +211,39 @@
         <button class="btn btn-danger" style="flex: 1;" onclick="clearHistory()">🗑️ Clear History</button>
         <button class="btn btn-secondary" style="width: 100%;" onclick="closeHistoryModal()">Close</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ADMIN / TEACHER PANEL MODAL -->
+  <div id="admin-modal" class="modal">
+    <div class="modal-content" style="max-width: 520px;">
+      <h2 style="margin-top: 0; color: #27AE60;">👑 Admin & Teacher Dashboard</h2>
+      
+      <!-- Section: Shared Class Lists -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="margin-top: 0; color: var(--primary); font-size: 15px;">Publish Shared Class Weekly List</h3>
+        <div style="margin-bottom: 8px;">
+          <input type="text" id="admin-list-name" placeholder="List Title (e.g., Friday 11-13-2026)">
+        </div>
+        <div style="margin-bottom: 8px;">
+          <textarea id="admin-list-words" rows="3" placeholder="Words (comma or newline separated)"></textarea>
+        </div>
+        <button class="btn btn-success" style="padding: 8px 12px; font-size: 13px;" onclick="addSharedClassList()">📢 Publish to All Students</button>
+      </div>
+
+      <!-- Section: Manage Student Roster -->
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        <h3 style="margin-top: 0; color: #8E44AD; font-size: 15px;">Add New Student Account</h3>
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <input type="text" id="admin-student-id" placeholder="Student Name / ID">
+          <input type="text" id="admin-student-passphrase" placeholder="Passphrase">
+        </div>
+        <button class="btn btn-primary" style="padding: 8px 12px; font-size: 13px;" onclick="addStudentAccount()">➕ Create Account</button>
+      </div>
+
+      <div id="admin-student-roster" class="voice-list-container" style="max-height: 25vh;"></div>
+
+      <button class="btn btn-secondary" onclick="closeAdminModal()">Close Dashboard</button>
     </div>
   </div>
 

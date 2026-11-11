@@ -10,4 +10,6 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-const spellingRef = db.ref("spelling_bee");
+const rootRef = db.ref("spelling_bee");
+const sharedListsRef = rootRef.child("shared_lists");
+const studentsRef = rootRef.child("students");

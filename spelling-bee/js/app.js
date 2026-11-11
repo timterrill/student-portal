@@ -1,13 +1,27 @@
 const defaultLists = {
-  "_Animals": [ "Dog", "Cat", "Bird" ],
-  "_Rainbow": [ "Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet" ]
+  "Friday 10-23-2026": [
+    "metal", "hospitality", "definition", "provision", "preside",
+    "crime", "genetics", "period", "explore", "hospital",
+    "periodic", "gene", "exploration", "criminal", "legality",
+    "president", "define", "metallic", "provide", "legal"
+  ]
 };
 const MISSED_VAULT_KEY = "⚠️ Missed Words Vault";
-let spellingLists = defaultLists;
+
+// Multi-student State
+let currentStudentId = localStorage.getItem('spellingCurrentStudentId') || null;
+let isAdmin = localStorage.getItem('spellingIsAdmin') === 'true';
+let activeStudentRef = null;
+
+let sharedLists = {};
+let spellingLists = defaultLists; // Personal + Shared
+let personalLists = {};
 let enabledVoiceNames = null;
 let sessionHistory = [];
 let missedWordsVault = [];
 let activeMashSession = null;
+let allStudentsRoster = {};
+
 let availableVoices = [];
 let currentQueue = [];
 let nextQueue = [];
@@ -21,22 +35,22 @@ let totalMistakesCount = 0;
 let recognition = null;
 
 function sanitizeKey(key) {
-  if (!key) return "Untitled List";
-  return key.trim().replace(/[.#$\[\]\/]/g, '-');
+  if (!key) return "Untitled";
+  return key.trim().toLowerCase().replace(/[.#$\[\]\/]/g, '-');
 }
 
 function validateAndSanitizeTitle(rawTitle) {
-  const sanitized = sanitizeKey(rawTitle);
+  const sanitized = rawTitle.trim().replace(/[.#$\[\]\/]/g, '-');
   const hasForbiddenChars = /[.#$\[\]\/]/.test(rawTitle);
   if (hasForbiddenChars) {
     const confirmUse = confirm(
-      `The title "${rawTitle}" contains characters that aren't allowed in the database (. # $ / [ ]).\n\n` +
+      `The title "${rawTitle}" contains forbidden database characters (. # $ / [ ]).\n\n` +
       `Suggested safe title: "${sanitized}"\n\n` +
-      `Click OK to use "${sanitized}", or Cancel to rename it manually.`
+      `Click OK to use "${sanitized}", or Cancel to rename it.`
     );
     return confirmUse ? sanitized : null;
   }
-  return sanitized;
+  return rawTitle.trim();
 }
 
 function getMostRecentFridayKey(keys) {
@@ -60,48 +74,131 @@ function extractDateFromString(str) {
   return new Date(year, month, day);
 }
 
-spellingRef.on("value", (snapshot) => {
-  const serverData = snapshot.val();
-  if (serverData) {
-    if (serverData.spellingLists) spellingLists = serverData.spellingLists;
-    if (serverData.enabledVoiceNames) enabledVoiceNames = serverData.enabledVoiceNames;
-    if (serverData.sessionHistory) sessionHistory = serverData.sessionHistory;
-    if (serverData.missedWordsVault) missedWordsVault = serverData.missedWordsVault;
-    if (serverData.activeMashSession) activeMashSession = serverData.activeMashSession;
-    localStorage.setItem('spellingLists', JSON.stringify(spellingLists));
-    if (enabledVoiceNames) localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
-    localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
-    localStorage.setItem('spellingMissedWordsVault', JSON.stringify(missedWordsVault));
-    if (activeMashSession) localStorage.setItem('spellingActiveMashSession', JSON.stringify(activeMashSession));
-    loadVoices();
-    populateAllDropdowns();
-    checkResumeBanner();
-    if (document.getElementById('view-manager') && document.getElementById('view-manager').classList.contains('active')) {
-      renderListManager();
-    }
-  } else {
-    saveData();
-  }
+// Global Listener for Shared Lists
+sharedListsRef.on("value", (snapshot) => {
+  sharedLists = snapshot.val() || defaultLists;
+  combineLists();
+  populateAllDropdowns();
 });
 
+// Global Listener for Students Roster (for Admin/Login verification)
+studentsRef.on("value", (snapshot) => {
+  allStudentsRoster = snapshot.val() || {};
+  if (isAdmin) renderAdminRoster();
+});
+
+function loginUser() {
+  const idInput = document.getElementById('login-student-id');
+  const passInput = document.getElementById('login-passphrase');
+  const errDiv = document.getElementById('login-error');
+  if (!idInput || !passInput) return;
+  
+  const rawId = idInput.value.trim();
+  const rawPass = passInput.value.trim();
+  errDiv.style.display = 'none';
+
+  if (!rawId || !rawPass) {
+    errDiv.innerText = "Please enter both Student ID and Passphrase.";
+    errDiv.style.display = 'block';
+    return;
+  }
+
+  // Master Admin Check
+  if (rawId.toLowerCase() === 'admin' && rawPass === 'admin123') {
+    currentStudentId = 'Admin';
+    isAdmin = true;
+    saveSessionAndInit();
+    return;
+  }
+
+  const cleanId = sanitizeKey(rawId);
+  if (allStudentsRoster[cleanId]) {
+    if (allStudentsRoster[cleanId].passphrase === rawPass) {
+      currentStudentId = cleanId;
+      isAdmin = false;
+      saveSessionAndInit();
+    } else {
+      errDiv.innerText = "Incorrect passphrase. Please check with your teacher/parent.";
+      errDiv.style.display = 'block';
+    }
+  } else {
+    // Auto-register first-time student if roster is empty or student self-creates
+    studentsRef.child(cleanId).set({
+      name: rawId,
+      passphrase: rawPass,
+      created: new Date().toLocaleDateString()
+    }).then(() => {
+      currentStudentId = cleanId;
+      isAdmin = false;
+      saveSessionAndInit();
+    });
+  }
+}
+
+function saveSessionAndInit() {
+  localStorage.setItem('spellingCurrentStudentId', currentStudentId);
+  localStorage.setItem('spellingIsAdmin', isAdmin ? 'true' : 'false');
+  document.getElementById('login-modal').style.display = 'none';
+  initStudentSession();
+}
+
+function logoutUser() {
+  if (activeStudentRef) activeStudentRef.off();
+  currentStudentId = null;
+  isAdmin = false;
+  localStorage.removeItem('spellingCurrentStudentId');
+  localStorage.removeItem('spellingIsAdmin');
+  document.getElementById('login-modal').style.display = 'flex';
+  document.getElementById('view-home').classList.remove('active');
+}
+
+function initStudentSession() {
+  const badge = document.getElementById('user-display-badge');
+  const adminBtn = document.getElementById('btn-admin-panel');
+  if (badge) badge.innerText = `👤 Logged in: ${currentStudentId} ${isAdmin ? '(Admin)' : ''}`;
+  if (adminBtn) adminBtn.style.display = isAdmin ? 'block' : 'none';
+
+  if (activeStudentRef) activeStudentRef.off();
+
+  if (!isAdmin) {
+    activeStudentRef = studentsRef.child(currentStudentId);
+    activeStudentRef.on("value", (snapshot) => {
+      const data = snapshot.val() || {};
+      personalLists = data.personalLists || {};
+      enabledVoiceNames = data.enabledVoiceNames || null;
+      sessionHistory = data.sessionHistory || [];
+      missedWordsVault = data.missedWordsVault || [];
+      activeMashSession = data.activeMashSession || null;
+      combineLists();
+      loadVoices();
+      populateAllDropdowns();
+      checkResumeBanner();
+    });
+  } else {
+    personalLists = {};
+    combineLists();
+    loadVoices();
+    populateAllDropdowns();
+  }
+
+  switchView('view-home');
+}
+
+function combineLists() {
+  spellingLists = Object.assign({}, sharedLists, personalLists);
+}
+
 function saveData() {
-  const safeLists = {};
-  Object.keys(spellingLists).forEach(k => {
-    safeLists[sanitizeKey(k)] = spellingLists[k];
-  });
-  spellingLists = safeLists;
-  localStorage.setItem('spellingLists', JSON.stringify(spellingLists));
-  if (enabledVoiceNames) localStorage.setItem('enabledVoiceNames', JSON.stringify(enabledVoiceNames));
-  localStorage.setItem('spellingSessionHistory', JSON.stringify(sessionHistory));
-  localStorage.setItem('spellingMissedWordsVault', JSON.stringify(missedWordsVault));
-  if (activeMashSession) localStorage.setItem('spellingActiveMashSession', JSON.stringify(activeMashSession));
-  spellingRef.set({
-    spellingLists: spellingLists,
-    enabledVoiceNames: enabledVoiceNames,
-    sessionHistory: sessionHistory,
-    missedWordsVault: missedWordsVault,
-    activeMashSession: activeMashSession
-  }).catch(err => console.error("Firebase sync error:", err));
+  combineLists();
+  if (!isAdmin && currentStudentId) {
+    studentsRef.child(currentStudentId).update({
+      personalLists: personalLists,
+      enabledVoiceNames: enabledVoiceNames,
+      sessionHistory: sessionHistory,
+      missedWordsVault: missedWordsVault,
+      activeMashSession: activeMashSession
+    }).catch(err => console.error("Firebase sync error:", err));
+  }
 }
 
 function switchView(viewId) {
@@ -448,9 +545,9 @@ function importData(event) {
       }
       const cleanListsData = {};
       Object.keys(rawListsData).forEach(k => {
-        cleanListsData[sanitizeKey(k)] = rawListsData[k];
+        cleanListsData[validateAndSanitizeTitle(k)] = rawListsData[k];
       });
-      spellingLists = cleanListsData;
+      personalLists = cleanListsData;
       if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
         enabledVoiceNames = imported.enabledVoiceNames;
       }
@@ -464,7 +561,7 @@ function importData(event) {
       loadVoices();
       populateAllDropdowns();
       if (document.getElementById('view-manager')) renderListManager();
-      alert(`Successfully imported ${Object.keys(spellingLists).length} spelling lists into Firebase and synced across devices!`);
+      alert(`Successfully imported spelling lists!`);
       fileInput.value = '';
     } catch (err) {
       alert(`Unexpected error during import: ${err.message}`);
@@ -493,9 +590,10 @@ function populateAllDropdowns() {
       select.appendChild(vaultOption);
     }
     keys.forEach(key => {
+      const isShared = sharedLists[key] !== undefined;
       const option = document.createElement('option');
       option.value = key;
-      option.textContent = `${key} (${spellingLists[key].length} words)`;
+      option.textContent = `${isShared ? '📢 Class: ' : '✏️ '}${key} (${spellingLists[key].length} words)`;
       select.appendChild(option);
     });
     if (currentVal && (keys.includes(currentVal) || currentVal === MISSED_VAULT_KEY)) {
@@ -762,9 +860,9 @@ function renderListManager() {
   const container = document.getElementById('manager-lists-container');
   if (!container) return;
   container.innerHTML = '';
-  const keys = Object.keys(spellingLists);
+  const keys = Object.keys(personalLists);
   if (keys.length === 0) {
-    container.innerHTML = '<div style="color: #7F8C8D; margin: 20px 0;">No lists available. Add one below!</div>';
+    container.innerHTML = '<div style="color: #7F8C8D; margin: 20px 0;">No personal custom lists available yet. Shared class lists are managed by your teacher.</div>';
     return;
   }
   keys.forEach(key => {
@@ -779,7 +877,7 @@ function renderListManager() {
         </div>
       </div>
       <div style="font-size: 13px; color: #555; word-wrap: break-word;">
-        ${spellingLists[key].join(', ')}
+        ${personalLists[key].join(', ')}
       </div>
     `;
     container.appendChild(div);
@@ -800,13 +898,13 @@ function addNewList() {
   if (!safeName) return;
   const words = wordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
   const uniqueWords = [...new Set(words)];
-  spellingLists[safeName] = uniqueWords;
+  personalLists[safeName] = uniqueWords;
   saveData();
   nameInput.value = '';
   wordsInput.value = '';
   renderListManager();
   populateAllDropdowns();
-  alert(`List "${safeName}" added with ${uniqueWords.length} words!`);
+  alert(`Personal list "${safeName}" added!`);
 }
 
 function editList(key) {
@@ -814,29 +912,119 @@ function editList(key) {
   if (rawNewName === null) return;
   const safeName = validateAndSanitizeTitle(rawNewName);
   if (!safeName) return;
-  const currentWords = spellingLists[key] ? spellingLists[key].join(', ') : '';
-  const newWordsRaw = prompt("Edit words (separated by commas or lines):", currentWords);
+  const currentWords = personalLists[key] ? personalLists[key].join(', ') : '';
+  const newWordsRaw = prompt("Edit words:", currentWords);
   if (newWordsRaw === null) return;
   const words = newWordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
   const uniqueWords = [...new Set(words)];
-  if (safeName !== key) {
-    delete spellingLists[key];
-  }
-  spellingLists[safeName] = uniqueWords;
+  if (safeName !== key) delete personalLists[key];
+  personalLists[safeName] = uniqueWords;
   saveData();
   renderListManager();
   populateAllDropdowns();
 }
 
 function deleteList(key) {
-  if (confirm(`Are you sure you want to delete the list "${key}"?`)) {
-    delete spellingLists[key];
+  if (confirm(`Delete personal list "${key}"?`)) {
+    delete personalLists[key];
     saveData();
     renderListManager();
     populateAllDropdowns();
   }
 }
 
+// ADMIN / TEACHER PANEL LOGIC
+function openAdminModal() {
+  if (!isAdmin) return;
+  renderAdminRoster();
+  document.getElementById('admin-modal').style.display = 'flex';
+}
+
+function closeAdminModal() {
+  document.getElementById('admin-modal').style.display = 'none';
+}
+
+function addSharedClassList() {
+  const nameInput = document.getElementById('admin-list-name');
+  const wordsInput = document.getElementById('admin-list-words');
+  if (!nameInput || !wordsInput) return;
+  const rawName = nameInput.value.trim();
+  const wordsRaw = wordsInput.value.trim();
+  if (!rawName || !wordsRaw) {
+    alert("Please enter both title and words.");
+    return;
+  }
+  const safeName = validateAndSanitizeTitle(rawName);
+  if (!safeName) return;
+  const words = wordsRaw.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+  const uniqueWords = [...new Set(words)];
+  
+  sharedListsRef.child(safeName).set(uniqueWords).then(() => {
+    alert(`📢 Published shared class list "${safeName}" to all students!`);
+    nameInput.value = '';
+    wordsInput.value = '';
+  });
+}
+
+function addStudentAccount() {
+  const idInput = document.getElementById('admin-student-id');
+  const passInput = document.getElementById('admin-student-passphrase');
+  if (!idInput || !passInput) return;
+  const rawId = idInput.value.trim();
+  const rawPass = passInput.value.trim();
+  if (!rawId || !rawPass) {
+    alert("Please enter Student ID and Passphrase.");
+    return;
+  }
+  const cleanId = sanitizeKey(rawId);
+  studentsRef.child(cleanId).set({
+    name: rawId,
+    passphrase: rawPass,
+    created: new Date().toLocaleDateString()
+  }).then(() => {
+    alert(`Added student account for "${rawId}" (Passphrase: ${rawPass})`);
+    idInput.value = '';
+    passInput.value = '';
+  });
+}
+
+function renderAdminRoster() {
+  const rosterDiv = document.getElementById('admin-student-roster');
+  if (!rosterDiv) return;
+  rosterDiv.innerHTML = '<strong style="font-size: 13px; color: #555;">Registered Students Roster:</strong><br>';
+  const keys = Object.keys(allStudentsRoster);
+  if (keys.length === 0) {
+    rosterDiv.innerHTML += '<div style="font-size: 12px; color: #7F8C8D;">No students registered yet.</div>';
+    return;
+  }
+  keys.forEach(k => {
+    const s = allStudentsRoster[k];
+    const div = document.createElement('div');
+    div.className = 'history-card';
+    div.style.marginBottom = '6px';
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong>${s.name || k}</strong> <span style="font-size: 11px; color: #888;">(Passphrase: <code>${s.passphrase}</code>)</span>
+        </div>
+        <button class="btn btn-danger" style="padding: 2px 6px; font-size: 11px;" onclick="deleteStudentAccount('${k}')">Remove</button>
+      </div>
+    `;
+    rosterDiv.appendChild(div);
+  });
+}
+
+function deleteStudentAccount(studentId) {
+  if (confirm(`Are you sure you want to remove student account "${studentId}"?`)) {
+    studentsRef.child(studentId).remove();
+  }
+}
+
 window.onload = () => {
-  switchView('view-home');
+  if (currentStudentId) {
+    document.getElementById('login-modal').style.display = 'none';
+    initStudentSession();
+  } else {
+    document.getElementById('login-modal').style.display = 'flex';
+  }
 };
