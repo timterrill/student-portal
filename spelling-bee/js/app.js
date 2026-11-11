@@ -118,11 +118,19 @@ function loginUser() {
       errDiv.style.display = 'block';
     }
   } else {
-    // Auto-register first-time student if roster is empty or student self-creates
+    // Inherit default enabled voices from Admin if configured, else null
+    let defaultVoicesToInherit = null;
+    if (allStudentsRoster['Admin'] && allStudentsRoster['Admin'].enabledVoiceNames) {
+      defaultVoicesToInherit = allStudentsRoster['Admin'].enabledVoiceNames;
+    } else if (enabledVoiceNames) {
+      defaultVoicesToInherit = enabledVoiceNames;
+    }
+
     studentsRef.child(cleanId).set({
       name: rawId,
       passphrase: rawPass,
-      created: new Date().toLocaleDateString()
+      created: new Date().toLocaleDateString(),
+      enabledVoiceNames: defaultVoicesToInherit
     }).then(() => {
       currentStudentId = cleanId;
       isAdmin = false;
@@ -171,10 +179,20 @@ function initStudentSession() {
       checkResumeBanner();
     });
   } else {
-    personalLists = {};
-    combineLists();
-    loadVoices();
-    populateAllDropdowns();
+    // Admin personal settings stored under Admin node
+    activeStudentRef = studentsRef.child('Admin');
+    activeStudentRef.on("value", (snapshot) => {
+      const data = snapshot.val() || {};
+      personalLists = data.personalLists || {};
+      enabledVoiceNames = data.enabledVoiceNames || null;
+      sessionHistory = data.sessionHistory || [];
+      missedWordsVault = data.missedWordsVault || [];
+      activeMashSession = data.activeMashSession || null;
+      combineLists();
+      loadVoices();
+      populateAllDropdowns();
+      checkResumeBanner();
+    });
   }
 
   switchView('view-home');
@@ -186,8 +204,9 @@ function combineLists() {
 
 function saveData() {
   combineLists();
-  if (!isAdmin && currentStudentId) {
-    studentsRef.child(currentStudentId).update({
+  const targetNodeKey = isAdmin ? 'Admin' : currentStudentId;
+  if (targetNodeKey) {
+    studentsRef.child(targetNodeKey).update({
       personalLists: personalLists,
       enabledVoiceNames: enabledVoiceNames,
       sessionHistory: sessionHistory,
@@ -832,7 +851,7 @@ function showCompletionScreen() {
       <div class="stats-card-box">
         <div>🎯 First-Try Accuracy: <strong>${firstTimeCorrectCount} / ${initialTotal} (${pct}%)</strong></div>
         <div>❌ Total Mistakes: <strong>${totalMistakesCount}</strong></div>
-        <div>⏱️ Total Time: <strong>${formattedDuration}</strong></div>
+        <div>⏱️ Time: <strong>${formattedDuration}</strong></div>
       </div>
     `;
   }
@@ -973,12 +992,16 @@ function addStudentAccount() {
     return;
   }
   const cleanId = sanitizeKey(rawId);
+  
+  let defaultVoicesToInherit = (allStudentsRoster['Admin'] && allStudentsRoster['Admin'].enabledVoiceNames) ? allStudentsRoster['Admin'].enabledVoiceNames : enabledVoiceNames;
+
   studentsRef.child(cleanId).set({
     name: rawId,
     passphrase: rawPass,
-    created: new Date().toLocaleDateString()
+    created: new Date().toLocaleDateString(),
+    enabledVoiceNames: defaultVoicesToInherit
   }).then(() => {
-    alert(`Added student account for "${rawId}" (Passphrase: ${rawPass})`);
+    alert(`Added student account for "${rawId}" (Passphrase: ${rawPass}) with default voice filters inherited!`);
     idInput.value = '';
     passInput.value = '';
   });
@@ -994,6 +1017,7 @@ function renderAdminRoster() {
     return;
   }
   keys.forEach(k => {
+    if (k === 'Admin') return; // Hide admin from student roster list
     const s = allStudentsRoster[k];
     const div = document.createElement('div');
     div.className = 'history-card';
