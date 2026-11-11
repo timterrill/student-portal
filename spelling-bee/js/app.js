@@ -1,10 +1,6 @@
 const defaultLists = {
-  "Friday 10-23-2026": [
-    "metal", "hospitality", "definition", "provision", "preside",
-    "crime", "genetics", "period", "explore", "hospital",
-    "periodic", "gene", "exploration", "criminal", "legality",
-    "president", "define", "metallic", "provide", "legal"
-  ]
+  "_Animals": [ "Dog", "Cat", "Bird" ],
+  "_Rainbow": [ "Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet" ]
 };
 const MISSED_VAULT_KEY = "⚠️ Missed Words Vault";
 let spellingLists = defaultLists;
