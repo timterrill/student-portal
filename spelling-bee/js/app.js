@@ -4,6 +4,15 @@ const defaultLists = {
 };
 const MISSED_VAULT_KEY = "⚠️ Missed Words Vault";
 
+// Curated default voices for all new or unconfigured user profiles
+const defaultEnabledVoices = [
+  "Samantha", "Bad News", "Bells", "Boing", "Bubbles", "Cellos", "Daniel",
+  "Eddy (English (United States))", "Fred", "Good News", "Grandma (English (United States))",
+  "Grandpa (English (United States))", "Karen", "Moira", "Organ", "Reed (English (United States))",
+  "Rishi", "Rocko (English (United States))", "Tessa", "Trinoids", "Whisper",
+  "Wobble", "Zarvox", "Google US English"
+];
+
 // Multi-student State
 let currentStudentId = localStorage.getItem('spellingCurrentStudentId') || null;
 let isAdmin = localStorage.getItem('spellingIsAdmin') === 'true';
@@ -118,12 +127,10 @@ function loginUser() {
       errDiv.style.display = 'block';
     }
   } else {
-    // Inherit default enabled voices from Admin if configured, else null
-    let defaultVoicesToInherit = null;
+    // Inherit default enabled voices from Admin if configured, else use curated defaultEnabledVoices
+    let defaultVoicesToInherit = defaultEnabledVoices;
     if (allStudentsRoster['Admin'] && allStudentsRoster['Admin'].enabledVoiceNames) {
       defaultVoicesToInherit = allStudentsRoster['Admin'].enabledVoiceNames;
-    } else if (enabledVoiceNames) {
-      defaultVoicesToInherit = enabledVoiceNames;
     }
 
     studentsRef.child(cleanId).set({
@@ -179,7 +186,6 @@ function initStudentSession() {
       checkResumeBanner();
     });
   } else {
-    // Admin personal settings stored under Admin node
     activeStudentRef = studentsRef.child('Admin');
     activeStudentRef.on("value", (snapshot) => {
       const data = snapshot.val() || {};
@@ -240,22 +246,12 @@ function checkResumeBanner() {
   }
 }
 
-// Curated default voices for all new or unconfigured user profiles
-const defaultEnabledVoices = [
-  "Samantha", "Bad News", "Bells", "Boing", "Bubbles", "Cellos", "Daniel",
-  "Eddy (English (United States))", "Fred", "Good News", "Grandma (English (United States))",
-  "Grandpa (English (United States))", "Karen", "Moira", "Organ", "Reed (English (United States))",
-  "Rishi", "Rocko (English (United States))", "Tessa", "Trinoids", "Whisper",
-  "Wobble", "Zarvox", "Google US English"
-];
-
 function loadVoices() {
   if (typeof window.speechSynthesis === 'undefined') return;
   let allLoadedVoices = window.speechSynthesis.getVoices();
   availableVoices = allLoadedVoices.filter(v => !v.name.toLowerCase().includes('ralph'));
   const savedVoiceName = localStorage.getItem('selectedVoiceName');
   const voiceSelects = [document.getElementById('voice-selector'), document.getElementById('voice-selector-quiz')];
-  
   voiceSelects.forEach(select => {
     if (!select) return;
     select.innerHTML = '';
@@ -265,23 +261,18 @@ function loadVoices() {
       select.appendChild(option);
       return;
     }
-    
-    // Fall back to your curated default list if no custom filter is saved yet
     if (!enabledVoiceNames) {
       const matchedCurated = availableVoices.filter(v => defaultEnabledVoices.includes(v.name));
       enabledVoiceNames = matchedCurated.length > 0 ? matchedCurated.map(v => v.name) : availableVoices.map(v => v.name);
     }
-    
     const filteredVoices = availableVoices.filter(v => enabledVoiceNames.includes(v.name));
     const voicesToDisplay = filteredVoices.length > 0 ? filteredVoices : availableVoices;
-    
     voicesToDisplay.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.name;
       option.textContent = `${voice.name} (${voice.lang})`;
       select.appendChild(option);
     });
-    
     if (savedVoiceName && voicesToDisplay.some(v => v.name === savedVoiceName)) {
       select.value = savedVoiceName;
     } else if (voicesToDisplay.length > 0) {
@@ -601,6 +592,47 @@ function importData(event) {
   fileReader.onerror = () => {
     alert("Error reading the file from disk.");
     fileInput.value = '';
+  };
+  fileReader.readAsText(file, "UTF-8");
+}
+
+// ADMIN BULK IMPORT SHARED LISTS
+function importSharedLists(event) {
+  if (!isAdmin) return;
+  const fileInput = event.target;
+  if (!fileInput.files || !fileInput.files[0]) return;
+  const file = fileInput.files[0];
+  const fileReader = new FileReader();
+  fileReader.onload = (e) => {
+    try {
+      const rawText = e.target.result;
+      let imported = JSON.parse(rawText);
+      const rawListsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
+      if (!rawListsData || typeof rawListsData !== 'object' || Object.keys(rawListsData).length === 0) {
+        alert("Import Error: The JSON file does not contain valid spelling lists.");
+        fileInput.value = '';
+        return;
+      }
+      
+      let updateObj = {};
+      Object.keys(rawListsData).forEach(k => {
+        const safeName = validateAndSanitizeTitle(k);
+        if (safeName) {
+          let words = rawListsData[k];
+          if (Array.isArray(words)) {
+            updateObj[safeName] = words.map(w => w.trim().toLowerCase());
+          }
+        }
+      });
+
+      sharedListsRef.update(updateObj).then(() => {
+        alert("📢 Successfully bulk imported shared class lists for all students!");
+        fileInput.value = '';
+      });
+    } catch (err) {
+      alert(`Error parsing JSON import: ${err.message}`);
+      fileInput.value = '';
+    }
   };
   fileReader.readAsText(file, "UTF-8");
 }
@@ -1008,7 +1040,7 @@ function addStudentAccount() {
   }
   const cleanId = sanitizeKey(rawId);
   
-  let defaultVoicesToInherit = (allStudentsRoster['Admin'] && allStudentsRoster['Admin'].enabledVoiceNames) ? allStudentsRoster['Admin'].enabledVoiceNames : enabledVoiceNames;
+  let defaultVoicesToInherit = (allStudentsRoster['Admin'] && allStudentsRoster['Admin'].enabledVoiceNames) ? allStudentsRoster['Admin'].enabledVoiceNames : defaultEnabledVoices;
 
   studentsRef.child(cleanId).set({
     name: rawId,
