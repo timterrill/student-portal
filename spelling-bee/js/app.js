@@ -240,12 +240,22 @@ function checkResumeBanner() {
   }
 }
 
+// Curated default voices for all new or unconfigured user profiles
+const defaultEnabledVoices = [
+  "Samantha", "Bad News", "Bells", "Boing", "Bubbles", "Cellos", "Daniel",
+  "Eddy (English (United States))", "Fred", "Good News", "Grandma (English (United States))",
+  "Grandpa (English (United States))", "Karen", "Moira", "Organ", "Reed (English (United States))",
+  "Rishi", "Rocko (English (United States))", "Tessa", "Trinoids", "Whisper",
+  "Wobble", "Zarvox", "Google US English"
+];
+
 function loadVoices() {
   if (typeof window.speechSynthesis === 'undefined') return;
   let allLoadedVoices = window.speechSynthesis.getVoices();
   availableVoices = allLoadedVoices.filter(v => !v.name.toLowerCase().includes('ralph'));
   const savedVoiceName = localStorage.getItem('selectedVoiceName');
   const voiceSelects = [document.getElementById('voice-selector'), document.getElementById('voice-selector-quiz')];
+  
   voiceSelects.forEach(select => {
     if (!select) return;
     select.innerHTML = '';
@@ -255,18 +265,23 @@ function loadVoices() {
       select.appendChild(option);
       return;
     }
+    
+    // Fall back to your curated default list if no custom filter is saved yet
     if (!enabledVoiceNames) {
-      enabledVoiceNames = availableVoices.filter(v => v.lang.startsWith('en')).map(v => v.name);
-      if (enabledVoiceNames.length === 0) enabledVoiceNames = availableVoices.map(v => v.name);
+      const matchedCurated = availableVoices.filter(v => defaultEnabledVoices.includes(v.name));
+      enabledVoiceNames = matchedCurated.length > 0 ? matchedCurated.map(v => v.name) : availableVoices.map(v => v.name);
     }
+    
     const filteredVoices = availableVoices.filter(v => enabledVoiceNames.includes(v.name));
     const voicesToDisplay = filteredVoices.length > 0 ? filteredVoices : availableVoices;
+    
     voicesToDisplay.forEach(voice => {
       const option = document.createElement('option');
       option.value = voice.name;
       option.textContent = `${voice.name} (${voice.lang})`;
       select.appendChild(option);
     });
+    
     if (savedVoiceName && voicesToDisplay.some(v => v.name === savedVoiceName)) {
       select.value = savedVoiceName;
     } else if (voicesToDisplay.length > 0) {
