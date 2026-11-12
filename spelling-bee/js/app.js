@@ -550,48 +550,52 @@ function importData(event) {
   fileReader.onload = (e) => {
     try {
       const rawText = e.target.result;
-      let imported;
-      try {
-        imported = JSON.parse(rawText);
-      } catch (parseErr) {
-        alert(`JSON Syntax Error: The file is not valid JSON.\nDetails: ${parseErr.message}`);
-        fileInput.value = '';
-        return;
-      }
+      let imported = JSON.parse(rawText);
       const rawListsData = imported.spellingLists || (typeof imported === 'object' && !imported.sessionHistory ? imported : null);
+      
       if (!rawListsData || typeof rawListsData !== 'object' || Object.keys(rawListsData).length === 0) {
         alert("Import Error: The JSON file does not contain valid spelling lists ('spellingLists').");
         fileInput.value = '';
         return;
       }
+
       const cleanListsData = {};
       Object.keys(rawListsData).forEach(k => {
-        cleanListsData[validateAndSanitizeTitle(k)] = rawListsData[k];
+        const safeName = validateAndSanitizeTitle(k);
+        if (safeName) {
+          cleanListsData[safeName] = rawListsData[k];
+        }
       });
-      personalLists = cleanListsData;
-      if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
-        enabledVoiceNames = imported.enabledVoiceNames;
+
+      if (isAdmin) {
+        // If logged in as Admin, push directly to shared class lists!
+        sharedListsRef.update(cleanListsData).then(() => {
+          alert(`📢 Successfully bulk imported ${Object.keys(cleanListsData).length} shared class lists for all students!`);
+          fileInput.value = '';
+        });
+      } else {
+        // If logged in as a Student, update personal lists
+        personalLists = cleanListsData;
+        if (imported.enabledVoiceNames && Array.isArray(imported.enabledVoiceNames)) {
+          enabledVoiceNames = imported.enabledVoiceNames;
+        }
+        if (imported.sessionHistory && Array.isArray(imported.sessionHistory)) {
+          sessionHistory = imported.sessionHistory;
+        }
+        if (imported.missedWordsVault && Array.isArray(imported.missedWordsVault)) {
+          missedWordsVault = imported.missedWordsVault;
+        }
+        saveData();
+        loadVoices();
+        populateAllDropdowns();
+        if (document.getElementById('view-manager')) renderListManager();
+        alert(`Successfully imported personal spelling lists!`);
+        fileInput.value = '';
       }
-      if (imported.sessionHistory && Array.isArray(imported.sessionHistory)) {
-        sessionHistory = imported.sessionHistory;
-      }
-      if (imported.missedWordsVault && Array.isArray(imported.missedWordsVault)) {
-        missedWordsVault = imported.missedWordsVault;
-      }
-      saveData();
-      loadVoices();
-      populateAllDropdowns();
-      if (document.getElementById('view-manager')) renderListManager();
-      alert(`Successfully imported spelling lists!`);
-      fileInput.value = '';
     } catch (err) {
       alert(`Unexpected error during import: ${err.message}`);
       fileInput.value = '';
     }
-  };
-  fileReader.onerror = () => {
-    alert("Error reading the file from disk.");
-    fileInput.value = '';
   };
   fileReader.readAsText(file, "UTF-8");
 }
